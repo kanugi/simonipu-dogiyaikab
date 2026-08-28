@@ -33,7 +33,7 @@ class IosButton extends StatelessWidget {
       bg = AppColors.primaryLight;
       fg = AppColors.primary;
     } else if (isDanger) {
-      bg = AppColors.danger;
+      bg = const Color.fromARGB(255, 255, 38, 26);
       fg = Colors.white;
     }
 

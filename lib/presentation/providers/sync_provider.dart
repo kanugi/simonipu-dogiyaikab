@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../data/models/progres_lapangan.dart';
-import '../../data/repositories/simoni_repository.dart';
 
 class SyncProvider extends ChangeNotifier {
-  final SimoniRepository _repository = SimoniRepository();
-
-  List<ProgresLapangan> _unsyncedList = [];
+  final List<ProgresLapangan> _unsyncedList = [];
   bool _isSyncing = false;
-  final int _dbSizeKb = 142; // Simulated DB Size
+  final int _dbSizeKb = 0;
   int _photoCount = 0;
 
   List<ProgresLapangan> get unsyncedList => _unsyncedList;
@@ -21,24 +18,17 @@ class SyncProvider extends ChangeNotifier {
   }
 
   Future<void> loadSyncQueue() async {
-    _unsyncedList = await _repository.getUnsyncedQueue();
-    _photoCount = await _repository.getPhotoCount();
+    _photoCount = 0;
     notifyListeners();
   }
 
   Future<int> simulateSyncData() async {
     _isSyncing = true;
     notifyListeners();
-
-    // Simulate network delay for server sync
-    await Future.delayed(const Duration(milliseconds: 1800));
-
-    final count = await _repository.syncAllData();
-    await loadSyncQueue();
-
+    await Future.delayed(const Duration(milliseconds: 500));
     _isSyncing = false;
     notifyListeners();
-    return count;
+    return 0;
   }
 
   Future<void> clearPhotoCache() async {

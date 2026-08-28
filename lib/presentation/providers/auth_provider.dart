@@ -1,20 +1,43 @@
 import 'package:flutter/material.dart';
+import '../../data/datasources/api_service.dart';
 import '../../data/datasources/session_manager.dart';
+import '../../data/models/user_model.dart';
+import '../../data/repositories/simoni_repository.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final SessionManager _sessionManager = SessionManager();
+  final SimoniRepository _repository = SimoniRepository();
 
   bool _isLoggedIn = false;
   bool _isLoading = true;
-  String _nip = '';
-  String _name = '';
-  String _jabatan = '';
+  UserModel? _user;
+  String _baseUrl = SessionManager.defaultBaseUrl;
+  String? _errorMessage;
 
   bool get isLoggedIn => _isLoggedIn;
   bool get isLoading => _isLoading;
-  String get nip => _nip;
-  String get name => _name;
-  String get jabatan => _jabatan;
+  UserModel? get user => _user;
+  String get baseUrl => _baseUrl;
+  String? get errorMessage => _errorMessage;
+
+  String get name => _user?.nama ?? 'Pengguna';
+  String get username => _user?.username ?? '';
+  int get status => _user?.status ?? 0;
+  String get jabatan => _user?.source ?? '';
+  // String get jabatan => _user?.source == 'user' ? 'Petugas Lapangan PUPR' : 'Admin PUPR';
+
+  bool get isProductionEnv => _baseUrl == SessionManager.defaultBaseUrl;
+
+  String get roleName {
+    switch (status) {
+      case 1: return 'Super Admin';
+      case 2: return 'Admin Bidang';
+      case 3: return 'User Bidang';
+      case 4: return 'Surveyor';
+      case 5: return 'Rekanan';
+      case 6: return 'Auditor';
+      default: return 'User';
+    }
+  }
 
   AuthProvider() {
     checkSession();
@@ -24,51 +47,66 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _isLoggedIn = await _sessionManager.isLoggedIn();
-    if (_isLoggedIn) {
-      final profile = await _sessionManager.getUserProfile();
-      _nip = profile['nip']!;
-      _name = profile['name']!;
-      _jabatan = profile['jabatan']!;
+    try {
+      _baseUrl = await _repository.getBaseUrl();
+      _isLoggedIn = await _repository.isLoggedIn();
+      if (_isLoggedIn) {
+        _user = await _repository.getUser();
+      }
+    } catch (_) {
+      _isLoggedIn = false;
+      _user = null;
     }
 
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<bool> login(String nipOrUsername, String password) async {
+  Future<bool> login(String username, String password) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
-    // Simulate login validation & local session caching
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    String name = 'Yohanes Dogomo, S.T.';
-    if (nipOrUsername.trim().isNotEmpty) {
-      name = nipOrUsername.contains(' ') 
-          ? nipOrUsername 
-          : 'Petugas PUPR ($nipOrUsername)';
+    try {
+      final result = await _repository.login(username, password);
+      _user = result['user'] as UserModel?;
+      _isLoggedIn = true;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoggedIn = false;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan sistem saat login: $e';
+      _isLoggedIn = false;
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
-
-    await _sessionManager.saveSession(
-      nip: nipOrUsername.isEmpty ? '19880412 201201 1 002' : nipOrUsername,
-      name: name,
-      jabatan: 'Inspektur Lapangan PUPR Dogiyai',
-    );
-
-    _nip = nipOrUsername.isEmpty ? '19880412 201201 1 002' : nipOrUsername;
-    _name = name;
-    _jabatan = 'Inspektur Lapangan PUPR Dogiyai';
-    _isLoggedIn = true;
-
-    _isLoading = false;
-    notifyListeners();
-    return true;
   }
 
   Future<void> logout() async {
-    await _sessionManager.clearSession();
-    _isLoggedIn = false;
+    _isLoading = true;
     notifyListeners();
+
+    await _repository.logout();
+    _isLoggedIn = false;
+    _user = null;
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> switchEnvironment(String newBaseUrl) async {
+    _isLoading = true;
+    notifyListeners();
+
+    await _repository.setBaseUrl(newBaseUrl);
+    _baseUrl = newBaseUrl;
+    await logout(); // Switching environment clears token & logs out
   }
 }

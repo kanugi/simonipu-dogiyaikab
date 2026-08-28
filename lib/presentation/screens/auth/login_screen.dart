@@ -7,6 +7,7 @@ import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
 import '../../../widgets/text_field.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/paket_provider.dart';
 import '../dashboard/main_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -18,32 +19,74 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nipController = TextEditingController(text: '19880412 201201 1 002');
-  final _passwordController = TextEditingController(text: 'pupr12345');
-  // bool _isOfflineActive = true;
+  final _usernameController = TextEditingController(text: 'roki');
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _nipController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
+      FocusScope.of(context).unfocus();
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final success = await authProvider.login(
-        _nipController.text,
-        _passwordController.text,
-      );
+      final paketProvider = Provider.of<PaketProvider>(context, listen: false);
 
-      if (mounted && success) {
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(builder: (_) => const MainDashboardScreen()),
+      try {
+        final success = await authProvider.login(
+          _usernameController.text.trim(),
+          _passwordController.text,
         );
+
+        if (mounted) {
+          if (success) {
+            // Reload packages from API upon successful login
+            paketProvider.loadPackages();
+            Navigator.of(context).pushReplacement(
+              CupertinoPageRoute(builder: (_) => const MainDashboardScreen()),
+            );
+          } else {
+            _showErrorDialog(authProvider.errorMessage ?? 'Gagal login. Silakan periksa kredensial Anda.');
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          _showErrorDialog('Terjadi kesalahan: $e');
+        }
       }
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Row(
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.error, size: 22),
+            const SizedBox(width: 8),
+            Text('Gagal Login', style: GoogleFonts.outfit()),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            message,
+            style: GoogleFonts.inter(fontSize: 13),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Tutup'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -66,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Header Logo & Branding
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: AppColors.primaryLight,
                         shape: BoxShape.circle,
                       ),
@@ -74,12 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         'assets/Lambang_Kabupaten_Dogiyai.gif',
                         width: 52,
                         height: 52,
-                      )
-                      // child: const Icon(
-                      //   CupertinoIcons.building_2_fill,
-                      //   size: 52,
-                      //   color: AppColors.primary,
-                      // ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -101,62 +139,42 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
 
-                    // Offline Status Badge Bar
-                    // IosCard(
-                    //   margin: const EdgeInsets.only(bottom: 20),
-                    //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    //   color: AppColors.successBg,
-                    //   child: Row(
-                    //     children: [
-                    //       Container(
-                    //         padding: const EdgeInsets.all(6),
-                    //         decoration: const BoxDecoration(
-                    //           color: AppColors.success,
-                    //           shape: BoxShape.circle,
-                    //         ),
-                    //         child: const Icon(
-                    //           CupertinoIcons.wifi_slash,
-                    //           size: 16,
-                    //           color: Colors.white,
-                    //         ),
-                    //       ),
-                    //       const SizedBox(width: 12),
-                    //       Expanded(
-                    //         child: Column(
-                    //           crossAxisAlignment: CrossAxisAlignment.start,
-                    //           children: [
-                    //             Text(
-                    //               'Modus Luring Active',
-                    //               style: GoogleFonts.inter(
-                    //                 fontSize: 13,
-                    //                 fontWeight: FontWeight.bold,
-                    //                 color: AppColors.success,
-                    //               ),
-                    //             ),
-                    //             Text(
-                    //               'Penyimpanan database lokal SQLite aktif',
-                    //               style: GoogleFonts.inter(
-                    //                 fontSize: 11,
-                    //                 color: AppColors.textSecondary,
-                    //               ),
-                    //             ),
-                    //           ],
-                    //         ),
-                    //       ),
-                    //       CupertinoSwitch(
-                    //         value: _isOfflineActive,
-                    //         activeTrackColor: AppColors.success,
-                    //         onChanged: (val) {
-                    //           setState(() {
-                    //             _isOfflineActive = val;
-                    //           });
-                    //         },
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
+                    // Server Environment Indicator Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: authProvider.isProductionEnv ? AppColors.primaryLight : const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: authProvider.isProductionEnv ? AppColors.primary.withAlpha(77) : AppColors.warning.withAlpha(77),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            CupertinoIcons.cloud_fill,
+                            size: 14,
+                            color: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Server: ${authProvider.baseUrl}',
+                              style: GoogleFonts.robotoMono(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
 
                     // Login Form Card
                     IosCard(
@@ -165,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Masuk',
+                            'Masuk Akun API',
                             style: GoogleFonts.outfit(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -174,13 +192,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 16),
                           IosTextField(
-                            label: 'NIP / Username',
-                            hint: 'Masukkan NIP Petugas',
-                            controller: _nipController,
+                            label: 'Username',
+                            hint: 'Masukkan Username Petugas',
+                            controller: _usernameController,
                             prefixIcon: CupertinoIcons.person_fill,
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) {
-                                return 'NIP / Username wajib diisi';
+                                return 'Username wajib diisi';
                               }
                               return null;
                             },
@@ -215,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 24),
                           IosButton(
-                            label: 'Masuk System',
+                            label: 'Masuk',
                             isLoading: authProvider.isLoading,
                             icon: CupertinoIcons.arrow_right_circle_fill,
                             onPressed: _handleLogin,

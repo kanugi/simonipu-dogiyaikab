@@ -11,10 +11,8 @@ import '../../../widgets/card.dart';
 import '../../../widgets/status_badge.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/paket_provider.dart';
-import '../../providers/sync_provider.dart';
 import '../detail/package_detail_screen.dart';
 import '../input/input_progres_screen.dart';
-import '../queue/sync_queue_screen.dart';
 import '../settings/settings_screen.dart';
 
 class MainDashboardScreen extends StatefulWidget {
@@ -26,7 +24,7 @@ class MainDashboardScreen extends StatefulWidget {
 
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<String> _categories = ['Semua', 'Jalan', 'Jembatan', 'Irigasi', 'Perumahan'];
+  final List<String> _categories = ['Semua', 'BINA MARGA', 'Jalan', 'Jembatan'];
 
   @override
   void dispose() {
@@ -38,7 +36,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final paketProvider = Provider.of<PaketProvider>(context);
-    final syncProvider = Provider.of<SyncProvider>(context);
 
     final isTablet = MediaQuery.of(context).size.width >= 600;
 
@@ -87,13 +84,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   ),
                 ),
 
-                // Offline Active Badge
+                // API Active Server Badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.successBg,
+                    color: authProvider.isProductionEnv ? AppColors.successBg : const Color(0xFFFFFBEB),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.success.withAlpha(77)),
+                    border: Border.all(
+                      color: (authProvider.isProductionEnv ? AppColors.success : AppColors.warning).withAlpha(77),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -101,58 +100,24 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       Container(
                         width: 7,
                         height: 7,
-                        decoration: const BoxDecoration(
-                          color: AppColors.success,
+                        decoration: BoxDecoration(
+                          color: authProvider.isProductionEnv ? AppColors.success : AppColors.warning,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        'Mode Luring',
+                        authProvider.isProductionEnv ? 'API Production' : 'API Dev',
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.success,
+                          color: authProvider.isProductionEnv ? AppColors.success : AppColors.warning,
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Queue Sync Icon Shortcut
-                Stack(
-                  children: [
-                    IconButton(
-                      icon: const Icon(CupertinoIcons.arrow_2_circlepath, color: AppColors.primary),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          CupertinoPageRoute(builder: (_) => const SyncQueueScreen()),
-                        );
-                      },
-                    ),
-                    if (syncProvider.queueCount > 0)
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.warning,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '${syncProvider.queueCount}',
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
 
                 // Settings Shortcut
                 IconButton(
@@ -172,7 +137,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             await paketProvider.loadPackages();
-            await syncProvider.loadSyncQueue();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -180,6 +144,35 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Error Alert Banner if API failed
+                if (paketProvider.errorMessage != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withAlpha(25),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.error.withAlpha(77)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.error, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            paketProvider.errorMessage!,
+                            style: GoogleFonts.inter(fontSize: 12, color: AppColors.error),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => paketProvider.loadPackages(),
+                          child: const Text('Coba Lagi'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // Title
                 Text(
                   'Monitoring Progres Pekerjaan',
@@ -192,51 +185,33 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Summary Metrics Cards (Adaptive Grid 3 Column / Responsive Row)
+                // Summary Metrics Cards
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final double cardWidth = constraints.maxWidth >= 600
-                        ? (constraints.maxWidth - 24) / 3
-                        : (constraints.maxWidth - 12) / 2;
-
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                    return Row(
                       children: [
-                        _buildSummaryCard(
-                          context,
-                          width: cardWidth,
-                          title: 'Total Paket',
-                          value: '${paketProvider.totalPackages}',
-                          subtitle: 'Terunduh di Lokal',
-                          icon: CupertinoIcons.doc_text_fill,
-                          iconColor: AppColors.primary,
-                          bgColor: AppColors.primaryLight,
+                        Expanded(
+                          child: _buildSummaryCard(
+                            context,
+                            title: 'Total Paket PU',
+                            value: '${paketProvider.totalPackages}',
+                            subtitle: 'Terhubung ke Server API',
+                            icon: CupertinoIcons.doc_text_fill,
+                            iconColor: AppColors.primary,
+                            bgColor: AppColors.primaryLight,
+                          ),
                         ),
-                        _buildSummaryCard(
-                          context,
-                          width: cardWidth,
-                          title: 'Antrean Sync',
-                          value: '${paketProvider.unsyncedCount}',
-                          subtitle: 'Laporan Belum Ter-upload',
-                          icon: CupertinoIcons.clock_fill,
-                          iconColor: AppColors.warning,
-                          bgColor: AppColors.warningBg,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              CupertinoPageRoute(builder: (_) => const SyncQueueScreen()),
-                            );
-                          },
-                        ),
-                        _buildSummaryCard(
-                          context,
-                          width: constraints.maxWidth >= 600 ? cardWidth : constraints.maxWidth,
-                          title: 'Rata-rata Progres',
-                          value: '${paketProvider.averageProgress.toStringAsFixed(1)}%',
-                          subtitle: 'Fisik Lapangan',
-                          icon: CupertinoIcons.chart_bar_fill,
-                          iconColor: AppColors.success,
-                          bgColor: AppColors.successBg,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildSummaryCard(
+                            context,
+                            title: 'Rata-rata Progres',
+                            value: '${paketProvider.averageProgress.toStringAsFixed(1)}%',
+                            subtitle: 'Fisik Lapangan',
+                            icon: CupertinoIcons.chart_bar_fill,
+                            iconColor: AppColors.success,
+                            bgColor: AppColors.successBg,
+                          ),
                         ),
                       ],
                     );
@@ -255,7 +230,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     controller: _searchController,
                     onChanged: (val) => paketProvider.searchPackages(val),
                     decoration: InputDecoration(
-                      hintText: 'Cari paket pekerjaan, kode, atau lokasi...',
+                      hintText: 'Cari nama paket, rekanan, atau lokasi...',
                       hintStyle: GoogleFonts.inter(fontSize: 14, color: AppColors.textMuted),
                       prefixIcon: const Icon(CupertinoIcons.search, color: AppColors.textSecondary),
                       suffixIcon: _searchController.text.isNotEmpty
@@ -313,17 +288,26 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 const SizedBox(height: 18),
 
                 // Package List Section Title
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Daftar Paket Pekerjaan (${paketProvider.packages.length})',
-                      style: AppStyles.titleMedium(context),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Daftar Paket Pekerjaan (${paketProvider.packages.length})',
+                          style: AppStyles.titleMedium(context),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Kabupaten Dogiyai',
+                          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Kabupaten Dogiyai',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                    IconButton(
+                      icon: const Icon(CupertinoIcons.refresh_thin, color: AppColors.primary, size: 20),
+                      onPressed: () => paketProvider.loadPackages(),
                     ),
                   ],
                 ),
@@ -342,7 +326,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         : LayoutBuilder(
                             builder: (context, constraints) {
                               if (isTablet) {
-                                // 2-Column Grid on Tablet
                                 return GridView.builder(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
@@ -362,7 +345,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                                 );
                               }
 
-                              // 1-Column List on Smartphone
                               return ListView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
@@ -386,69 +368,63 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
   Widget _buildSummaryCard(
     BuildContext context, {
-    required double width,
     required String title,
     required String value,
     required String subtitle,
     required IconData icon,
     required Color iconColor,
     required Color bgColor,
-    VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: width,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.borderLight, width: 0.8),
-          boxShadow: AppStyles.cardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 18),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderLight, width: 0.8),
+        boxShadow: AppStyles.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
+                child: Icon(icon, color: iconColor, size: 18),
+              ),
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary,
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: GoogleFonts.outfit(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
               ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
             ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: GoogleFonts.inter(
-                fontSize: 10,
-                color: AppColors.textMuted,
-              ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              color: AppColors.textMuted,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -459,14 +435,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       onTap: () {
         Navigator.of(context).push(
           CupertinoPageRoute(
-            builder: (_) => PackageDetailScreen(packageId: pkg.packageId),
+            builder: (_) => PackageDetailScreen(packageIdInt: pkg.id),
           ),
         );
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row: Category Badge & Sync Status
+          // Header Row: Bidang Badge & Tahun
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -476,23 +452,29 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 customColor: AppColors.primary,
                 customBgColor: AppColors.primaryLight,
               ),
-              // StatusBadge(isSynced: pkg.isSynced),
+              if (pkg.tahunAnggaran.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'TA ${pkg.tahunAnggaran}',
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
 
-          // Package Code & Title
+          // Package Title & Rekanan
           Text(
-            pkg.packageId,
-            style: GoogleFonts.robotoMono(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            pkg.packageName,
+            pkg.namaPaket,
             style: GoogleFonts.outfit(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -501,21 +483,24 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 6),
+          if (pkg.rekanan.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Rekanan: ${pkg.rekanan}',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
 
-          // Location & Budget Row
+          // Value & Location Row
           Row(
             children: [
-              const Icon(CupertinoIcons.location_solid, size: 13, color: AppColors.textSecondary),
+              const Icon(CupertinoIcons.money_dollar_circle_fill, size: 14, color: AppColors.primary),
               const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  pkg.lokasi,
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
               Text(
                 CurrencyFormatter.formatShort(pkg.nilaiKontrak),
                 style: GoogleFonts.inter(
@@ -524,39 +509,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Progress Bar & Percentage
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+              const Spacer(),
+              const Icon(CupertinoIcons.location_solid, size: 13, color: AppColors.textSecondary),
+              const SizedBox(width: 4),
               Text(
-                'Progres Fisik',
+                pkg.lokasi ?? '-',
                 style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
               ),
-              Text(
-                '${pkg.progresFisikSaatIni.toStringAsFixed(1)}%',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: pkg.progresFisikSaatIni >= 50 ? AppColors.success : AppColors.warning,
-                ),
-              ),
             ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: (pkg.progresFisikSaatIni / 100).clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: const Color(0xFFE5E5EA),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                pkg.progresFisikSaatIni >= 50 ? AppColors.success : AppColors.warning,
-              ),
-            ),
           ),
           const SizedBox(height: 14),
 
@@ -587,7 +547,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 onPressed: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
-                      builder: (_) => PackageDetailScreen(packageId: pkg.packageId),
+                      builder: (_) => PackageDetailScreen(packageIdInt: pkg.id),
                     ),
                   );
                 },

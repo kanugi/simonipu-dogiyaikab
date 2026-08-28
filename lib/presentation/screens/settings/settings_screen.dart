@@ -4,19 +4,126 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
+import '../../../data/datasources/session_manager.dart';
 import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/sync_provider.dart';
 import '../auth/login_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  void _showChangeEnvironmentDialog(BuildContext context, AuthProvider authProvider) {
+    final currentUrl = authProvider.baseUrl;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text('Pilih Server Environment', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold)),
+        message: Text('Mengubah environment akan me-logout sesi aktif dan membawa Anda ke layar Login.', style: GoogleFonts.inter(fontSize: 12)),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: currentUrl == SessionManager.defaultBaseUrl,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (currentUrl == SessionManager.defaultBaseUrl)
+                  const Icon(CupertinoIcons.checkmark_alt, size: 18, color: AppColors.primary),
+                if (currentUrl == SessionManager.defaultBaseUrl)
+                  const SizedBox(width: 8),
+                const Text('Server Utama (Production)\nsimoni-pu.dogiyaikab.go.id', textAlign: TextAlign.center),
+              ],
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (currentUrl != SessionManager.defaultBaseUrl) {
+                _confirmSwitchEnvironment(context, authProvider, SessionManager.defaultBaseUrl);
+              }
+            },
+          ),
+          CupertinoActionSheetAction(
+            isDefaultAction: currentUrl == SessionManager.localBaseUrl,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (currentUrl == SessionManager.localBaseUrl)
+                  const Icon(CupertinoIcons.checkmark_alt, size: 18, color: AppColors.primary),
+                if (currentUrl == SessionManager.localBaseUrl)
+                  const SizedBox(width: 8),
+                const Text('Server Lokal (Development)\nsimoni-pu.khel.my.id', textAlign: TextAlign.center),
+              ],
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (currentUrl != SessionManager.localBaseUrl) {
+                _confirmSwitchEnvironment(context, authProvider, SessionManager.localBaseUrl);
+              }
+            },
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          child: const Text('Batal'),
+          onPressed: () => Navigator.of(ctx).pop(),
+        ),
+      ),
+    );
+  }
+
+  void _confirmSwitchEnvironment(BuildContext context, AuthProvider authProvider, String targetUrl) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Row(
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.warning, size: 22),
+            const SizedBox(width: 8),
+            Text('Konfirmasi Ubah ENV', style: GoogleFonts.outfit()),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            'Mengubah Server API ke:\n$targetUrl\n\nSesi login Anda akan diakhiri dan Anda akan dikembalikan ke halaman login dengan environment baru.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              ),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Batal'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('Ubah & Logout'),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await authProvider.switchEnvironment(targetUrl);
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    CupertinoPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Gagal mengganti environment: $e')),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final syncProvider = Provider.of<SyncProvider>(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -28,7 +135,7 @@ class SettingsScreen extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Pengaturan & Sesi',
+          'Pengaturan',
           style: GoogleFonts.outfit(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -70,27 +177,48 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            authProvider.jabatan,
+                            'Role: ${authProvider.roleName}',
                             style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w500,
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryLight,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'NIP: ${authProvider.nip}',
-                              style: GoogleFonts.robotoMono(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Username: @${authProvider.username}',
+                                  style: GoogleFonts.robotoMono(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              if (authProvider.user != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF2F2F7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'ID: ${authProvider.user!.id}',
+                                    style: GoogleFonts.robotoMono(
+                                      fontSize: 11,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -100,9 +228,9 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Storage & Cache Diagnostics Section
+              // Server Environment Section
               Text(
-                'Kapasitas & Penyimpanan Lokal',
+                'Konfigurasi Server API',
                 style: AppStyles.titleMedium(context),
               ),
               const SizedBox(height: 10),
@@ -110,82 +238,37 @@ class SettingsScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     _buildMetricRow(
-                      icon: CupertinoIcons.circle_grid_hex_fill,
+                      icon: CupertinoIcons.cloud_fill,
+                      iconColor: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
+                      title: 'Environment Terpilih',
+                      subtitle: authProvider.isProductionEnv ? 'Server Utama (Production)' : 'Server Lokal (Development)',
+                      value: authProvider.isProductionEnv ? 'Production' : 'Dev Local',
+                    ),
+                    const Divider(height: 20),
+                    _buildMetricRow(
+                      icon: CupertinoIcons.link,
                       iconColor: AppColors.info,
-                      title: 'Ukuran Database SQLite',
-                      subtitle: 'Penyimpanan terstruktur luring',
-                      value: '${syncProvider.dbSizeKb} KB',
-                    ),
-                    const Divider(height: 20),
-                    _buildMetricRow(
-                      icon: CupertinoIcons.photo_fill_on_rectangle_fill,
-                      iconColor: AppColors.primary,
-                      title: 'Foto Dokumentasi Tersimpan',
-                      subtitle: 'Hasil tangkapan kamera ber-geotag',
-                      value: '${syncProvider.photoCount} Foto',
-                    ),
-                    const Divider(height: 20),
-                    _buildMetricRow(
-                      icon: CupertinoIcons.wifi_slash,
-                      iconColor: AppColors.success,
-                      title: 'Mode Operasional',
-                      subtitle: 'Offline-First Full Storage',
-                      value: 'Aktif',
+                      title: 'Base Endpoint URL',
+                      subtitle: authProvider.baseUrl,
+                      value: '',
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // Clear Cache Button
+              // Change Environment Button
               IosButton(
-                label: 'Hapus Cache Foto Temporer',
-                icon: CupertinoIcons.trash_fill,
+                label: 'Ubah Environment (Switch Server)',
+                icon: CupertinoIcons.arrow_2_squarepath,
                 isSecondary: true,
-                onPressed: () async {
-                  await syncProvider.clearPhotoCache();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Cache foto temporer berhasil dibersihkan.'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  }
-                },
+                onPressed: () => _showChangeEnvironmentDialog(context, authProvider),
               ),
               const SizedBox(height: 28),
 
-              // Agency Info Section
-              // IosCard(
-              //   color: const Color(0xFFFAFAFC),
-              //   child: Column(
-              //     crossAxisAlignment: CrossAxisAlignment.start,
-              //     children: [
-              //       Text(
-              //         'SIMONI PU v1.0.0 (Offline Build)',
-              //         style: GoogleFonts.outfit(
-              //           fontSize: 14,
-              //           fontWeight: FontWeight.bold,
-              //         ),
-              //       ),
-              //       const SizedBox(height: 4),
-              //       Text(
-              //         'Sistem Informasi Monitoring Pekerjaan Umum dan Penataan Ruang Dinas PUPR Kabupaten Dogiyai, Provinsi Papua Tengah.',
-              //         style: GoogleFonts.inter(
-              //           fontSize: 12,
-              //           color: AppColors.textSecondary,
-              //           height: 1.4,
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ),
-              // const SizedBox(height: 28),
-
               // Logout Button
               IosButton(
-                label: 'Keluar / Logout Sesi',
+                label: 'Keluar',
                 icon: CupertinoIcons.power,
                 isDanger: true,
                 onPressed: () {
@@ -196,7 +279,7 @@ class SettingsScreen extends StatelessWidget {
                       content: Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
-                          'Apakah Anda yakin ingin keluar dari akun petugas? Data antrean lokal tetap tersimpan.',
+                          'Apakah Anda yakin ingin keluar?',
                           style: GoogleFonts.inter(fontSize: 13),
                         ),
                       ),
@@ -270,18 +353,21 @@ class SettingsScreen extends StatelessWidget {
                   fontSize: 11,
                   color: AppColors.textSecondary,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-        Text(
-          value,
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+        if (value.isNotEmpty)
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
           ),
-        ),
       ],
     );
   }

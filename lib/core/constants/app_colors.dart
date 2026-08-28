@@ -25,6 +25,8 @@ class AppColors {
   
   static const Color danger = Color(0xFFFF3B30); // iOS System Red
   static const Color dangerBg = Color(0xFFFFEBEA);
+  static const Color error = danger;
+  static const Color errorBg = dangerBg;
   
   static const Color info = Color(0xFF5856D6); // iOS System Purple
   static const Color infoBg = Color(0xFFF0EFFC);

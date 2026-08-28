@@ -4,61 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
-import '../../../widgets/status_badge.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/paket_provider.dart';
-import '../../providers/sync_provider.dart';
 
 class SyncQueueScreen extends StatelessWidget {
   const SyncQueueScreen({super.key});
 
-  void _handleSimulatedSync(BuildContext context) async {
-    final syncProvider = Provider.of<SyncProvider>(context, listen: false);
-    final paketProvider = Provider.of<PaketProvider>(context, listen: false);
-
-    final queueCountBefore = syncProvider.queueCount;
-
-    if (queueCountBefore == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Semua data progres lokal sudah tersinkronisasi.'),
-          backgroundColor: AppColors.info,
-        ),
-      );
-      return;
-    }
-
-    final countSynced = await syncProvider.simulateSyncData();
-    await paketProvider.loadPackages();
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '$countSynced Data Berhasil Tersinkronisasi ke Server Pusat SIMONI PU',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final syncProvider = Provider.of<SyncProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
+    final paketProvider = Provider.of<PaketProvider>(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -70,7 +27,7 @@ class SyncQueueScreen extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Antrean Sinkronisasi (Queue)',
+          'Status Koneksi API Direct Server',
           style: GoogleFonts.outfit(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -84,24 +41,20 @@ class SyncQueueScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Queue Status Overview Banner Card
+              // Direct API Active Banner Card
               IosCard(
-                color: syncProvider.queueCount > 0 ? AppColors.warningBg : AppColors.successBg,
-                border: Border.all(
-                  color: (syncProvider.queueCount > 0 ? AppColors.warning : AppColors.success).withAlpha(77),
-                ),
+                color: AppColors.successBg,
+                border: Border.all(color: AppColors.success.withAlpha(77)),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: syncProvider.queueCount > 0 ? AppColors.warning : AppColors.success,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        syncProvider.queueCount > 0
-                            ? CupertinoIcons.arrow_2_circlepath_circle_fill
-                            : CupertinoIcons.checkmark_shield_fill,
+                      child: const Icon(
+                        CupertinoIcons.cloud_fill,
                         color: Colors.white,
                         size: 28,
                       ),
@@ -112,20 +65,16 @@ class SyncQueueScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            syncProvider.queueCount > 0
-                                ? '${syncProvider.queueCount} Laporan Tertunda'
-                                : 'Semua Laporan Tersinkron',
+                            'Integrasi API Live Aktif',
                             style: GoogleFonts.outfit(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: syncProvider.queueCount > 0 ? AppColors.warning : AppColors.success,
+                              color: AppColors.success,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            syncProvider.queueCount > 0
-                                ? 'Data tersimpan di SQLite lokal dan siap dikirim ke server pusat SIMONI PU.'
-                                : 'Tidak ada laporan progres fisik yang tertunda di local storage.',
+                            'Seluruh pengiriman progres lembar kendali langsung diproses dan dikirim ke API Server.',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -139,128 +88,68 @@ class SyncQueueScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Sync Action Trigger Button
-              IosButton(
-                label: 'Sync Data ke Server Pusat (Simulasi)',
-                icon: CupertinoIcons.cloud_upload_fill,
-                isLoading: syncProvider.isSyncing,
-                onPressed: syncProvider.queueCount == 0
-                    ? null
-                    : () => _handleSimulatedSync(context),
+              // Server Details Card
+              Text(
+                'Rincian Endpoint Active',
+                style: AppStyles.titleMedium(context),
+              ),
+              const SizedBox(height: 10),
+              IosCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRow('Active Server URL', authProvider.baseUrl),
+                    const Divider(height: 20),
+                    _buildDetailRow('Mode Operasional', 'Direct API (Realtime)'),
+                    const Divider(height: 20),
+                    _buildDetailRow('Status Akun Token', authProvider.isLoggedIn ? 'Authenticated (Bearer Active)' : 'Not Authenticated'),
+                    const Divider(height: 20),
+                    _buildDetailRow('Total Paket Pekerjaan', '${paketProvider.totalPackages} Paket'),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
-              // Queue List Items Title
-              Text(
-                'Daftar Laporan Dalam Antrean (${syncProvider.queueCount})',
-                style: AppStyles.titleMedium(context),
-              ),
-              const SizedBox(height: 12),
-
-              if (syncProvider.unsyncedList.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        const Icon(CupertinoIcons.checkmark_circle_fill, size: 48, color: AppColors.success),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Antrean Kosong',
-                          style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Semua progres pekerjaan lapangan telah terkirim.',
-                          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: syncProvider.unsyncedList.length,
-                  itemBuilder: (context, index) {
-                    final item = syncProvider.unsyncedList[index];
-
-                    return IosCard(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                item.packageId,
-                                style: GoogleFonts.robotoMono(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                              const StatusBadge(isSynced: false),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.packageName,
-                            style: GoogleFonts.outfit(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Progres Fisik Ditambahkan: ${item.progresFisik.toStringAsFixed(1)}%',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.success,
-                                ),
-                              ),
-                              Text(
-                                DateFormatter.formatShortDate(item.timestamp),
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (item.catatan.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'Catatan: "${item.catatan}"',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                                color: AppColors.textSecondary,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
+              // Reload Data Action Button
+              IosButton(
+                label: 'Muat Ulang Data dari API Server',
+                icon: CupertinoIcons.refresh_bold,
+                isLoading: paketProvider.isLoading,
+                onPressed: () async {
+                  await paketProvider.loadPackages();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Data berhasil diperbarui dari API Server.'),
+                        backgroundColor: AppColors.success,
                       ),
                     );
-                  },
-                ),
+                  }
+                },
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            style: GoogleFonts.robotoMono(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

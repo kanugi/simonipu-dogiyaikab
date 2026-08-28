@@ -1,75 +1,107 @@
 class PaketPekerjaan {
-  final String id;
-  final String packageId;
-  final String packageName;
-  final String bidang; // e.g. Jalan, Jembatan, Irigasi, Perumahan
+  final int id;
+  final String kodePaket;
+  final String namaPaket;
+  final String tahunAnggaran;
   final double nilaiKontrak;
-  final String lokasi;
   final String rekanan;
-  final double progresFisikSaatIni;
-  final bool isSynced;
+  final String kegiatan;
+  final String bidang;
+
+  // Detail fields
+  final String? tglKontrak;
+  final String? batasKontrak;
+  final double? biaya;
+  final int? idRekanan;
+  final String? namaRekanan;
+  final double? long;
+  final double? lat;
+  final String? lokasi;
+  final double? targetEfektif;
+  final double? targetFungsi;
+  final double realisasiFisik;
+  final double realisasiKeuangan;
+  final double sisaKeuangan;
 
   PaketPekerjaan({
     required this.id,
-    required this.packageId,
-    required this.packageName,
-    required this.bidang,
+    required this.kodePaket,
+    required this.namaPaket,
+    required this.tahunAnggaran,
     required this.nilaiKontrak,
-    required this.lokasi,
     required this.rekanan,
-    required this.progresFisikSaatIni,
-    this.isSynced = true,
+    required this.kegiatan,
+    required this.bidang,
+    this.tglKontrak,
+    this.batasKontrak,
+    this.biaya,
+    this.idRekanan,
+    this.namaRekanan,
+    this.long,
+    this.lat,
+    this.lokasi,
+    this.targetEfektif,
+    this.targetFungsi,
+    this.realisasiFisik = 0.0,
+    this.realisasiKeuangan = 0.0,
+    this.sisaKeuangan = 0.0,
   });
 
-  Map<String, dynamic> toMap() {
+  // Backward compatibility getters for UI screens
+  String get packageId => kodePaket.isNotEmpty ? kodePaket : 'PKT-$id';
+  String get packageName => namaPaket;
+  double get progresFisikSaatIni => realisasiFisik;
+  bool get isSynced => true;
+
+  factory PaketPekerjaan.fromJson(Map<String, dynamic> json) {
+    return PaketPekerjaan(
+      id: json['id'] as int? ?? 0,
+      kodePaket: json['kode_paket'] as String? ?? '',
+      namaPaket: json['nama_paket'] as String? ?? '',
+      tahunAnggaran: json['tahun_anggaran']?.toString() ?? '',
+      nilaiKontrak: (json['nilai_kontrak'] as num?)?.toDouble() ?? 0.0,
+      rekanan: (json['rekanan'] as String?) ?? (json['nama_rekanan'] as String?) ?? '',
+      kegiatan: json['kegiatan'] as String? ?? '',
+      bidang: json['bidang'] as String? ?? '',
+      tglKontrak: json['tgl_kontrak'] as String?,
+      batasKontrak: json['batas_kontrak'] as String?,
+      biaya: (json['biaya'] as num?)?.toDouble(),
+      idRekanan: json['id_rekanan'] as int?,
+      namaRekanan: json['nama_rekanan'] as String?,
+      long: (json['long'] as num?)?.toDouble(),
+      lat: (json['lat'] as num?)?.toDouble(),
+      lokasi: json['lokasi'] as String? ?? 'Kab. Dogiyai',
+      targetEfektif: (json['target_efektif'] as num?)?.toDouble(),
+      targetFungsi: (json['target_fungsi'] as num?)?.toDouble(),
+      realisasiFisik: (json['realisasi_fisik'] as num?)?.toDouble() ?? 0.0,
+      realisasiKeuangan: (json['realisasi_keuangan'] as num?)?.toDouble() ?? 0.0,
+      sisaKeuangan: (json['sisa_keuangan'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'packageId': packageId,
-      'packageName': packageName,
-      'bidang': bidang,
-      'nilaiKontrak': nilaiKontrak,
-      'lokasi': lokasi,
+      'kode_paket': kodePaket,
+      'nama_paket': namaPaket,
+      'tahun_anggaran': tahunAnggaran,
+      'nilai_kontrak': nilaiKontrak,
       'rekanan': rekanan,
-      'progresFisikSaatIni': progresFisikSaatIni,
-      'isSynced': isSynced ? 1 : 0,
+      'kegiatan': kegiatan,
+      'bidang': bidang,
+      'tgl_kontrak': tglKontrak,
+      'batas_kontrak': batasKontrak,
+      'biaya': biaya,
+      'id_rekanan': idRekanan,
+      'nama_rekanan': namaRekanan,
+      'long': long,
+      'lat': lat,
+      'lokasi': lokasi,
+      'target_efektif': targetEfektif,
+      'target_fungsi': targetFungsi,
+      'realisasi_fisik': realisasiFisik,
+      'realisasi_keuangan': realisasiKeuangan,
+      'sisa_keuangan': sisaKeuangan,
     };
-  }
-
-  factory PaketPekerjaan.fromMap(Map<String, dynamic> map) {
-    return PaketPekerjaan(
-      id: map['id'] as String,
-      packageId: map['packageId'] as String,
-      packageName: map['packageName'] as String,
-      bidang: map['bidang'] as String,
-      nilaiKontrak: (map['nilaiKontrak'] as num).toDouble(),
-      lokasi: map['lokasi'] as String,
-      rekanan: map['rekanan'] as String,
-      progresFisikSaatIni: (map['progresFisikSaatIni'] as num).toDouble(),
-      isSynced: (map['isSynced'] as int) == 1,
-    );
-  }
-
-  PaketPekerjaan copyWith({
-    String? id,
-    String? packageId,
-    String? packageName,
-    String? bidang,
-    double? nilaiKontrak,
-    String? lokasi,
-    String? rekanan,
-    double? progresFisikSaatIni,
-    bool? isSynced,
-  }) {
-    return PaketPekerjaan(
-      id: id ?? this.id,
-      packageId: packageId ?? this.packageId,
-      packageName: packageName ?? this.packageName,
-      bidang: bidang ?? this.bidang,
-      nilaiKontrak: nilaiKontrak ?? this.nilaiKontrak,
-      lokasi: lokasi ?? this.lokasi,
-      rekanan: rekanan ?? this.rekanan,
-      progresFisikSaatIni: progresFisikSaatIni ?? this.progresFisikSaatIni,
-      isSynced: isSynced ?? this.isSynced,
-    );
   }
 }
