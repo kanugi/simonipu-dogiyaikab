@@ -142,38 +142,38 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20),
 
                     // Server Environment Indicator Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: authProvider.isProductionEnv ? AppColors.primaryLight : const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: authProvider.isProductionEnv ? AppColors.primary.withAlpha(77) : AppColors.warning.withAlpha(77),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            CupertinoIcons.cloud_fill,
-                            size: 14,
-                            color: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              'Server: ${authProvider.baseUrl}',
-                              style: GoogleFonts.robotoMono(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Container(
+                    //   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    //   decoration: BoxDecoration(
+                    //     color: authProvider.isProductionEnv ? AppColors.primaryLight : const Color(0xFFFFFBEB),
+                    //     borderRadius: BorderRadius.circular(20),
+                    //     border: Border.all(
+                    //       color: authProvider.isProductionEnv ? AppColors.primary.withAlpha(77) : AppColors.warning.withAlpha(77),
+                    //     ),
+                    //   ),
+                    //   child: Row(
+                    //     mainAxisSize: MainAxisSize.min,
+                    //     children: [
+                    //       Icon(
+                    //         CupertinoIcons.cloud_fill,
+                    //         size: 14,
+                    //         color: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
+                    //       ),
+                    //       const SizedBox(width: 6),
+                    //       Flexible(
+                    //         child: Text(
+                    //           'Server: ${authProvider.baseUrl}',
+                    //           style: GoogleFonts.robotoMono(
+                    //             fontSize: 11,
+                    //             fontWeight: FontWeight.w600,
+                    //             color: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
+                    //           ),
+                    //           overflow: TextOverflow.ellipsis,
+                    //         ),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                     const SizedBox(height: 24),
 
                     // Login Form Card

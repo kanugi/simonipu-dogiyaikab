@@ -71,9 +71,16 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(CupertinoIcons.exclamationmark_triangle_fill, size: 48, color: AppColors.warning),
+                    const Icon(
+                      CupertinoIcons.exclamationmark_triangle_fill,
+                      size: 48,
+                      color: AppColors.warning,
+                    ),
                     const SizedBox(height: 12),
-                    Text('Detail Paket Tidak Ditemukan', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Detail Paket Tidak Ditemukan',
+                      style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () => setState(() => _loadData()),
@@ -163,7 +170,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Realisasi Fisik (realisasi_fisik)',
+                                  'Realisasi Fisik',
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -218,6 +225,31 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                             );
                           }
 
+                          if (fotoSnapshot.hasError) {
+                            return Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    const Icon(CupertinoIcons.exclamationmark_circle,
+                                        color: AppColors.warning, size: 32),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Gagal memuat foto: ${fotoSnapshot.error}',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                          fontSize: 13, color: AppColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
                           final fotoList = fotoSnapshot.data ?? [];
                           if (fotoList.isEmpty) {
                             return Container(
@@ -251,11 +283,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    // Header: Kendali ID & Status Badge
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          'Kendali ID: ${item.kendaliId}',
+                                          'Kendali #${item.kendaliId}',
                                           style: GoogleFonts.robotoMono(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
@@ -263,17 +296,24 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                           ),
                                         ),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: AppColors.successBg,
+                                            color: item.status.toLowerCase() == 'approved'
+                                                ? AppColors.successBg
+                                                : const Color(0xFFFFF3CD),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            'Verified',
+                                            item.status.isNotEmpty
+                                                ? item.status.toUpperCase()
+                                                : 'VERIFIED',
                                             style: GoogleFonts.inter(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
-                                              color: AppColors.success,
+                                              color: item.status.toLowerCase() == 'approved'
+                                                  ? AppColors.success
+                                                  : const Color(0xFF856404),
                                             ),
                                           ),
                                         ),
@@ -289,35 +329,35 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                         ),
                                       ),
                                     ],
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 12),
 
-                                    // Display images
-                                    if (item.foto.isNotEmpty) ...[
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: item.foto.map((url) {
-                                          final fullUrl = FotoKendali.sanitizeUrl(url);
-                                          return ClipRRect(
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: Image.network(
-                                              fullUrl,
-                                              height: 140,
-                                              width: (MediaQuery.of(context).size.width - 64) / 2,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (ctx, err, stack) => Container(
-                                                height: 100,
-                                                width: 120,
-                                                color: Colors.grey.shade200,
-                                                child: const Center(
-                                                  child: Icon(CupertinoIcons.photo, color: Colors.grey),
-                                                ),
+                                    // Tampilkan semua foto secara dinamis
+                                    if (item.fotoItems.isEmpty)
+                                      Center(
+                                        child: Text(
+                                          'Tidak ada foto tersedia.',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          for (int i = 0; i < item.fotoItems.length; i++) ...[
+                                            if (i > 0) const SizedBox(width: 10),
+                                            Expanded(
+                                              child: _buildPhotoCard(
+                                                url: item.fotoItems[i].url,
+                                                label: 'Foto ${i + 1}',
+                                                info: item.fotoItems[i].info,
                                               ),
                                             ),
-                                          );
-                                        }).toList(),
+                                          ],
+                                        ],
                                       ),
-                                    ],
                                   ],
                                 ),
                               );
@@ -361,6 +401,100 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
+  /// Helper widget untuk render foto per item beserta label & deskripsi infonya
+  Widget _buildPhotoCard({
+    required String url,
+    required String label,
+    required String info,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE9ECEF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+            child: Stack(
+              children: [
+                Image.network(
+                  FotoKendali.sanitizeUrl(url),
+                  height: 130,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stack) => Container(
+                    height: 130,
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(CupertinoIcons.photo, color: Colors.grey, size: 30),
+                    ),
+                  ),
+                  loadingBuilder: (ctx, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      height: 130,
+                      color: Colors.grey.shade100,
+                      child: const Center(
+                        child: CupertinoActivityIndicator(),
+                      ),
+                    );
+                  },
+                ),
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                const Icon(
+                  CupertinoIcons.info_circle,
+                  size: 13,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    info.isNotEmpty ? info : 'Tanpa Keterangan',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: info.isNotEmpty ? AppColors.textPrimary : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoRow(String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,7 +509,11 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         Expanded(
           child: Text(
             value,
-            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
       ],
