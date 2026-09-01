@@ -211,13 +211,17 @@ Future<Map<String, dynamic>> login(
       final url = Uri.parse('$baseUrl/api/v1/paket/$id/foto');
       final headers = await _getHeaders();
 
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 15));
       final Map<String, dynamic> body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {
-        final data = body['data'];
-        final List<dynamic> fotoListRaw = data['foto'] as List<dynamic>? ?? [];
-        return fotoListRaw.map((e) => FotoKendali.fromJson(e)).toList();
+        final data = body['data'] as Map<String, dynamic>? ?? {};
+        final List<dynamic> dataList = data['foto'] as List<dynamic>? ?? [];
+        return dataList
+            .map((item) => FotoKendali.fromJson(item as Map<String, dynamic>))
+            .toList();
       } else {
         final errorMsg = body['message'] ?? 'Gagal mengambil foto riwayat kendali.';
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
