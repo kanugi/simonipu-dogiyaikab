@@ -153,4 +153,70 @@ class PaketProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> putEditKendali({
+    required int kendaliId,
+    required double majufreal,
+    required double majukeuangan,
+    String? keterangan,
+    String? foto1Path,
+    String? foto2Path,
+    String? info1,
+    String? info2,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _repository.putEditKendali(
+        kendaliId: kendaliId,
+        majufreal: majufreal,
+        majukeuangan: majukeuangan,
+        keterangan: keterangan,
+        foto1Path: foto1Path,
+        foto2Path: foto2Path,
+        info1: info1,
+        info2: info2,
+      );
+      await loadPackages(); // Refresh packages list
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'Gagal mengedit laporan kendali: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteKendali(int kendaliId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _repository.deleteKendali(kendaliId);
+      await loadPackages(); // Refresh packages list
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = 'Gagal menghapus laporan kendali: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
 }

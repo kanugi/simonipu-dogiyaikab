@@ -18,6 +18,8 @@ class FotoKendali {
   final int kendaliId;
   final String keterangan;
   final String status;
+  final double majufreal;
+  final double majukeuangan;
 
   /// Daftar foto dinamis (foto1, foto2, ...) yang diparse dari map `foto` di JSON
   final List<FotoItem> fotoItems;
@@ -26,6 +28,8 @@ class FotoKendali {
     required this.kendaliId,
     required this.keterangan,
     required this.status,
+    this.majufreal = 0.0,
+    this.majukeuangan = 0.0,
     required this.fotoItems,
   });
 
@@ -47,9 +51,15 @@ class FotoKendali {
     }
 
     return FotoKendali(
-      kendaliId: json['kendaliid'] as int? ?? 0,
+      kendaliId: json['kendaliid'] as int? ?? json['id'] as int? ?? 0,
       keterangan: json['keterangan'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      majufreal: (json['majufreal'] as num?)?.toDouble() ??
+          (json['progres_fisik'] as num?)?.toDouble() ??
+          0.0,
+      majukeuangan: (json['majukeuangan'] as num?)?.toDouble() ??
+          (json['nilai_keuangan'] as num?)?.toDouble() ??
+          0.0,
       fotoItems: items,
     );
   }

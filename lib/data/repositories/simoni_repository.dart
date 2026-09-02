@@ -58,6 +58,32 @@ class SimoniRepository {
     );
   }
 
+  Future<Map<String, dynamic>> putEditKendali({
+    required int kendaliId,
+    required double majufreal,
+    required double majukeuangan,
+    String? keterangan,
+    String? foto1Path,
+    String? foto2Path,
+    String? info1,
+    String? info2,
+  }) async {
+    return await _apiService.putEditKendali(
+      kendaliId: kendaliId,
+      majufreal: majufreal,
+      majukeuangan: majukeuangan,
+      keterangan: keterangan,
+      foto1Path: foto1Path,
+      foto2Path: foto2Path,
+      info1: info1,
+      info2: info2,
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteKendali(int kendaliId) async {
+    return await _apiService.deleteKendali(kendaliId);
+  }
+
   Future<bool> isLoggedIn() async {
     return await _sessionManager.isLoggedIn();
   }

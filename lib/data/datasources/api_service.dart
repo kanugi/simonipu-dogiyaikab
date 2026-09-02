@@ -348,4 +348,133 @@ Future<Map<String, dynamic>> login(
       throw ApiException('Terjadi kesalahan saat kirim progres: $e');
     }
   }
+
+  /// f.) PUT Edit progress kendali [/api/v1/kendali/{kendaliid}]
+  Future<Map<String, dynamic>> putEditKendali({
+    required int kendaliId,
+    required double majufreal,
+    required double majukeuangan,
+    String? keterangan,
+    String? foto1Path,
+    String? foto2Path,
+    String? info1,
+    String? info2,
+  }) async {
+    try {
+      final baseUrl = await _getBaseUrl();
+      final url = Uri.parse('$baseUrl/api/v1/kendali/$kendaliId');
+      final token = await _sessionManager.getToken();
+
+      final request = http.MultipartRequest('PUT', url);
+
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      request.headers['Accept'] = 'application/json';
+
+      // Field _method = PUT jika backend PHP/Laravel memproses multipart via POST/_method
+      request.fields['_method'] = 'PUT';
+
+      request.fields['majufreal'] = majufreal.toString();
+      request.fields['majukeuangan'] = majukeuangan.toString();
+      if (keterangan != null && keterangan.isNotEmpty) {
+        request.fields['keterangan'] = keterangan;
+      }
+      if (info1 != null && info1.isNotEmpty) {
+        request.fields['info1'] = info1;
+      }
+      if (info2 != null && info2.isNotEmpty) {
+        request.fields['info2'] = info2;
+      }
+
+      if (foto1Path != null && foto1Path.isNotEmpty && File(foto1Path).existsSync()) {
+        request.files.add(await http.MultipartFile.fromPath('foto1', foto1Path));
+      }
+
+      if (foto2Path != null && foto2Path.isNotEmpty && File(foto2Path).existsSync()) {
+        request.files.add(await http.MultipartFile.fromPath('foto2', foto2Path));
+      }
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('=== PUT /api/v1/kendali/$kendaliId ===');
+      debugPrint('Status Code : ${response.statusCode}');
+      debugPrint('Response    : ${response.body}');
+
+      final contentType = response.headers['content-type'] ?? '';
+      if (contentType.contains('text/html') || response.body.trimLeft().startsWith('<')) {
+        if (response.statusCode == 401 || response.statusCode == 302) {
+          throw ApiException(
+            'Sesi Anda telah berakhir. Silakan login ulang.',
+            statusCode: response.statusCode,
+          );
+        }
+        throw ApiException(
+          'Server mengembalikan respons tidak valid (HTTP ${response.statusCode}).',
+          statusCode: response.statusCode,
+        );
+      }
+
+      Map<String, dynamic> body;
+      try {
+        body = jsonDecode(response.body) as Map<String, dynamic>;
+      } on FormatException {
+        throw ApiException(
+          'Format respons server tidak valid (bukan JSON). HTTP ${response.statusCode}.',
+          statusCode: response.statusCode,
+        );
+      }
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          body['success'] == true) {
+        return {
+          'message': body['message'] ?? 'Lembar kendali berhasil diperbarui',
+          'data': body['data'],
+        };
+      } else {
+        final errorMsg = body['message'] ??
+            body['errors'] ??
+            'Gagal mengedit lembar kendali. HTTP ${response.statusCode}';
+        throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
+      }
+    } on SocketException {
+      throw ApiException('Gagal terhubung ke server saat memperbarui lembar kendali.');
+    } on TimeoutException {
+      throw ApiException('Waktu koneksi habis saat memperbarui lembar kendali. Coba lagi.');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Terjadi kesalahan saat edit kendali: $e');
+    }
+  }
+
+  /// g.) DELETE progress kendali [/api/v1/kendali/{kendaliid}]
+  Future<Map<String, dynamic>> deleteKendali(int kendaliId) async {
+    try {
+      final baseUrl = await _getBaseUrl();
+      final url = Uri.parse('$baseUrl/api/v1/kendali/$kendaliId');
+      final headers = await _getHeaders();
+
+      final response = await http.delete(url, headers: headers).timeout(const Duration(seconds: 15));
+      final Map<String, dynamic> body = jsonDecode(response.body);
+
+      debugPrint('=== DELETE /api/v1/kendali/$kendaliId ===');
+      debugPrint('Status Code : ${response.statusCode}');
+      debugPrint('Response    : ${response.body}');
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return {
+          'message': body['message'] ?? 'Lembar kendali berhasil dihapus',
+        };
+      } else {
+        final errorMsg = body['message'] ?? 'Gagal menghapus lembar kendali.';
+        throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
+      }
+    } on SocketException {
+      throw ApiException('Koneksi internet bermasalah saat menghapus lembar kendali.');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Terjadi kesalahan saat menghapus lembar kendali: $e');
+    }
+  }
 }
