@@ -10,6 +10,7 @@ import '../../../data/models/paket_pekerjaan.dart';
 import '../../../widgets/card.dart';
 import '../../../widgets/status_badge.dart';
 import '../../providers/paket_provider.dart';
+import '../edit/edit_kendali_screen.dart';
 import '../input/input_progres_screen.dart';
 
 class PackageDetailScreen extends StatefulWidget {
@@ -277,13 +278,14 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                             itemCount: fotoList.length,
                             itemBuilder: (context, index) {
                               final item = fotoList[index];
+                              final bool isPending = item.status.toLowerCase() == 'pending';
 
                               return IosCard(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Header: Kendali ID & Status Badge
+                                    // Header: Kendali ID, Edit/Delete Action Buttons, & Status Badge
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
@@ -295,27 +297,108 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                             color: AppColors.primary,
                                           ),
                                         ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: item.status.toLowerCase() == 'approved'
-                                                ? AppColors.successBg
-                                                : const Color(0xFFFFF3CD),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            item.status.isNotEmpty
-                                                ? item.status.toUpperCase()
-                                                : 'VERIFIED',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: item.status.toLowerCase() == 'approved'
-                                                  ? AppColors.success
-                                                  : const Color(0xFF856404),
+                                        Row(
+                                          children: [
+                                            // Tombol Edit dan Hapus hanya muncul jika status == Pending
+                                            if (isPending) ...[
+                                              Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  onTap: () async {
+                                                    final updated = await Navigator.of(context).push(
+                                                      CupertinoPageRoute(
+                                                        builder: (_) => EditKendaliScreen(
+                                                          package: package,
+                                                          kendaliItem: item,
+                                                        ),
+                                                      ),
+                                                    );
+                                                    if (updated == true || mounted) {
+                                                      setState(() {
+                                                        _loadData();
+                                                      });
+                                                    }
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.primary.withAlpha(20),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(CupertinoIcons.pencil, size: 12, color: AppColors.primary),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'Edit',
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: AppColors.primary,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  onTap: () => _confirmDeleteKendali(item),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.error.withAlpha(20),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(CupertinoIcons.trash, size: 12, color: AppColors.error),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'Hapus',
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: AppColors.error,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: item.status.toLowerCase() == 'approved'
+                                                    ? AppColors.successBg
+                                                    : const Color(0xFFFFF3CD),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                item.status.isNotEmpty
+                                                    ? item.status.toUpperCase()
+                                                    : 'VERIFIED',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: item.status.toLowerCase() == 'approved'
+                                                      ? AppColors.success
+                                                      : const Color(0xFF856404),
+                                                ),
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -517,6 +600,64 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _confirmDeleteKendali(FotoKendali item) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Row(
+          children: [
+            const Icon(CupertinoIcons.trash_fill, color: AppColors.error, size: 20),
+            const SizedBox(width: 8),
+            Text('Hapus Kendali #${item.kendaliId}', style: GoogleFonts.outfit()),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            'Apakah Anda yakin ingin menghapus lembar kendali ini? Tindakan ini tidak dapat dibatalkan.',
+            style: GoogleFonts.inter(fontSize: 13),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('Batal'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              final paketProvider = Provider.of<PaketProvider>(context, listen: false);
+              final success = await paketProvider.deleteKendali(item.kendaliId);
+              if (mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Lembar kendali berhasil dihapus.'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                  setState(() {
+                    _loadData();
+                  });
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(paketProvider.errorMessage ?? 'Gagal menghapus lembar kendali.'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
     );
   }
 }
