@@ -8,7 +8,6 @@ import '../../../widgets/card.dart';
 import '../../../widgets/text_field.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/paket_provider.dart';
-import '../dashboard/main_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -42,16 +41,11 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text,
         );
 
-        if (mounted) {
-          if (success) {
-            // Reload packages from API upon successful login
-            paketProvider.loadPackages();
-            Navigator.of(context).pushReplacement(
-              CupertinoPageRoute(builder: (_) => const MainDashboardScreen()),
-            );
-          } else {
-            _showErrorDialog(authProvider.errorMessage ?? 'Gagal login. Silakan periksa kredensial Anda.');
-          }
+        if (success) {
+          // Trigger load packages
+          paketProvider.loadPackages();
+        } else if (mounted) {
+          _showErrorDialog(authProvider.errorMessage ?? 'Gagal login. Silakan periksa kredensial Anda.');
         }
       } catch (e) {
         if (mounted) {
