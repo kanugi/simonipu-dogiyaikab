@@ -16,4 +16,9 @@ class DateFormatter {
   static String formatShortDate(DateTime dateTime) {
     return DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(dateTime);
   }
+
+  /// Format compact untuk watermark foto — singkat, jelas, padat
+  static String formatWatermark(DateTime dateTime) {
+    return DateFormat('dd-MM-yyyy HH:mm:ss', 'id_ID').format(dateTime);
+  }
 }

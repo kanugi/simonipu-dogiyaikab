@@ -106,6 +106,8 @@ class PaketProvider extends ChangeNotifier {
     String? keterangan,
     required String foto1Path,
     String? foto2Path,
+    String? info1,
+    String? info2,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -119,6 +121,8 @@ class PaketProvider extends ChangeNotifier {
         keterangan: keterangan,
         foto1Path: foto1Path,
         foto2Path: foto2Path,
+        info1: info1,
+        info2: info2,
       );
       await loadPackages(); // Refresh packages list
       _isLoading = false;

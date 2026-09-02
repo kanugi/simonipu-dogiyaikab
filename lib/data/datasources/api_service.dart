@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/foto_kendali.dart';
 import '../models/paket_pekerjaan.dart';
@@ -111,14 +112,14 @@ Future<Map<String, dynamic>> login(
       );
     }
   } on SocketException catch (e) {
-    print('LOGIN SOCKET ERROR: $e');
+    debugPrint('LOGIN SOCKET ERROR: $e');
 
     throw ApiException(
       'Tidak dapat terhubung ke server API. '
       'Periksa koneksi internet atau environment URL Anda.',
     );
   } on http.ClientException catch (e) {
-    print('LOGIN CLIENT ERROR: $e');
+    debugPrint('LOGIN CLIENT ERROR: $e');
 
     throw ApiException(
       'Gagal berkomunikasi dengan server API.',
@@ -242,6 +243,8 @@ Future<Map<String, dynamic>> login(
     String? keterangan,
     required String foto1Path,
     String? foto2Path,
+    String? info1,
+    String? info2,
   }) async {
     try {
       final baseUrl = await _getBaseUrl();
@@ -253,6 +256,8 @@ Future<Map<String, dynamic>> login(
       if (token != null && token.isNotEmpty) {
         request.headers['Authorization'] = 'Bearer $token';
       }
+      // Pastikan server tahu kita mengharapkan JSON response
+      request.headers['Accept'] = 'application/json';
 
       request.fields['proyekid'] = proyekId.toString();
       request.fields['majufreal'] = majufreal.toString();
@@ -261,33 +266,83 @@ Future<Map<String, dynamic>> login(
         request.fields['keterangan'] = keterangan;
       }
 
-      // Add foto1 (Required)
+      // Keterangan foto 1
+      if (info1 != null && info1.isNotEmpty) {
+        request.fields['info1'] = info1;
+      }
+
+      // Keterangan foto 2 (opsional)
+      if (info2 != null && info2.isNotEmpty) {
+        request.fields['info2'] = info2;
+      }
+
+      // Foto 1 (Required)
       if (foto1Path.isNotEmpty && File(foto1Path).existsSync()) {
         request.files.add(await http.MultipartFile.fromPath('foto1', foto1Path));
       } else {
         throw ApiException('Foto 1 (wajib) belum dipilih atau file tidak ditemukan.');
       }
 
-      // Add foto2 (Optional)
+      // Foto 2 (Optional)
       if (foto2Path != null && foto2Path.isNotEmpty && File(foto2Path).existsSync()) {
         request.files.add(await http.MultipartFile.fromPath('foto2', foto2Path));
       }
 
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
-      final Map<String, dynamic> body = jsonDecode(response.body);
 
-      if ((response.statusCode == 200 || response.statusCode == 201) && body['success'] == true) {
+      // Debug log — bantu identifikasi masalah
+      debugPrint('=== POST /api/v1/kendali ===');
+      debugPrint('URL         : $url');
+      debugPrint('Status Code : ${response.statusCode}');
+      debugPrint('Content-Type: ${response.headers['content-type']}');
+      debugPrint('Fields sent : proyekid=$proyekId, majufreal=$majufreal, majukeuangan=$majukeuangan');
+      debugPrint('Response    : ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
+
+      // Cek apakah response adalah HTML (bukan JSON)
+      final contentType = response.headers['content-type'] ?? '';
+      if (contentType.contains('text/html') || response.body.trimLeft().startsWith('<')) {
+        // Server mengembalikan HTML — kemungkinan token expired atau redirect
+        if (response.statusCode == 401 || response.statusCode == 302) {
+          throw ApiException(
+            'Sesi Anda telah berakhir. Silakan login ulang.',
+            statusCode: response.statusCode,
+          );
+        }
+        throw ApiException(
+          'Server mengembalikan respons tidak valid (HTTP ${response.statusCode}). '
+          'Periksa koneksi atau hubungi administrator.',
+          statusCode: response.statusCode,
+        );
+      }
+
+      // Parse JSON response
+      Map<String, dynamic> body;
+      try {
+        body = jsonDecode(response.body) as Map<String, dynamic>;
+      } on FormatException {
+        throw ApiException(
+          'Format respons server tidak valid (bukan JSON). HTTP ${response.statusCode}.',
+          statusCode: response.statusCode,
+        );
+      }
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          body['success'] == true) {
         return {
           'message': body['message'] ?? 'Lembar kendali berhasil dikirim',
           'data': body['data'],
         };
       } else {
-        final errorMsg = body['message'] ?? body['errors'] ?? 'Gagal mengirim lembar kendali progres.';
+        final errorMsg = body['message'] ??
+            body['errors'] ??
+            'Gagal mengirim lembar kendali progres. HTTP ${response.statusCode}';
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
       }
     } on SocketException {
       throw ApiException('Gagal terhubung ke server saat mengunggah progres.');
+    } on TimeoutException {
+      throw ApiException('Waktu koneksi habis saat mengunggah foto. Coba lagi.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Terjadi kesalahan saat kirim progres: $e');
