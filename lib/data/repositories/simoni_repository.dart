@@ -43,6 +43,8 @@ class SimoniRepository {
     String? keterangan,
     required String foto1Path,
     String? foto2Path,
+    String? info1,
+    String? info2,
   }) async {
     return await _apiService.postInputProgress(
       proyekId: proyekId,
@@ -51,6 +53,8 @@ class SimoniRepository {
       keterangan: keterangan,
       foto1Path: foto1Path,
       foto2Path: foto2Path,
+      info1: info1,
+      info2: info2,
     );
   }
 
