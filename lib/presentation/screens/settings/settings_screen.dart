@@ -8,7 +8,7 @@ import '../../../data/datasources/session_manager.dart';
 import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
 import '../../providers/auth_provider.dart';
-import '../auth/login_screen.dart';
+import '../../providers/paket_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -100,13 +100,11 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.of(ctx).pop();
               try {
-                await authProvider.switchEnvironment(targetUrl);
                 if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    CupertinoPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
+                  Provider.of<PaketProvider>(context, listen: false).clearPackages();
+                  Navigator.of(context).popUntil((route) => route.isFirst);
                 }
+                await authProvider.switchEnvironment(targetUrl);
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -293,15 +291,11 @@ class SettingsScreen extends StatelessWidget {
                           child: const Text('Keluar'),
                           onPressed: () async {
                             Navigator.of(ctx).pop();
-                            await authProvider.logout();
                             if (context.mounted) {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                CupertinoPageRoute(
-                                  builder: (_) => const LoginScreen(),
-                                ),
-                                (route) => false,
-                              );
+                              Provider.of<PaketProvider>(context, listen: false).clearPackages();
+                              Navigator.of(context).popUntil((route) => route.isFirst);
                             }
+                            await authProvider.logout();
                           },
                         ),
                       ],

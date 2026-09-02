@@ -27,6 +27,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final List<String> _categories = ['Semua', 'BINA MARGA', 'Jalan', 'Jembatan'];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<PaketProvider>(context, listen: false).loadPackages();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();

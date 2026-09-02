@@ -30,8 +30,12 @@ class PaketProvider extends ChangeNotifier {
     return total / _allPackages.length;
   }
 
-  PaketProvider() {
-    loadPackages();
+  void clearPackages() {
+    _allPackages = [];
+    _filteredPackages = [];
+    _errorMessage = null;
+    _photoHistoryMap.clear();
+    notifyListeners();
   }
 
   Future<void> loadPackages({String? search, String? tahun}) async {
@@ -40,6 +44,15 @@ class PaketProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final isLoggedIn = await _repository.isLoggedIn();
+      if (!isLoggedIn) {
+        _allPackages = [];
+        _filteredPackages = [];
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
       final res = await _repository.getAllPaket(search: search, tahun: tahun);
       _allPackages = res['paket'] as List<PaketPekerjaan>;
       _applyFilter();
