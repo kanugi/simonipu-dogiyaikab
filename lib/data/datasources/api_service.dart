@@ -124,6 +124,18 @@ Future<Map<String, dynamic>> login(
     throw ApiException(
       'Gagal berkomunikasi dengan server API.',
     );
+  } on TimeoutException catch (e) {
+    debugPrint('LOGIN TIMEOUT ERROR: $e');
+
+    throw ApiException(
+      'Koneksi ke server waktu habis (Timeout 15 detik). Periksa koneksi internet HP Anda.',
+    );
+  } on HandshakeException catch (e) {
+    debugPrint('LOGIN HANDSHAKE ERROR: $e');
+
+    throw ApiException(
+      'Gagal verifikasi sertifikat SSL server. Pastikan HP terhubung ke internet.',
+    );
   }
 }
 

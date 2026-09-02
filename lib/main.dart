@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,9 +13,21 @@ import 'presentation/providers/sync_provider.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/dashboard/main_dashboard_screen.dart';
 
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  if (!kIsWeb) {
+    HttpOverrides.global = MyHttpOverrides();
+  }
+
   // Initialize Indonesian locale for Intl DateFormat
   await initializeDateFormatting('id_ID', null);
 
