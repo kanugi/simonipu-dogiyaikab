@@ -16,7 +16,7 @@ class SimoniRepository {
     String? search,
     String? tahun,
     int page = 1,
-    int limit = 5,
+    int limit = 10,
     int? idRekanan,
   }) async {
     return await _apiService.getAllPaket(

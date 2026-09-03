@@ -15,15 +15,20 @@ class PaketProvider extends ChangeNotifier {
   String _searchQuery = '';
   String _selectedCategory = 'Semua';
   String? _errorMessage;
+  int _totalPackages = 0;
+  int _limit = 10;
+  final List<int> _limitOptions = [5, 10, 20, 50, 100];
 
   List<PaketPekerjaan> get packages => _filteredPackages;
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
   String? get errorMessage => _errorMessage;
+  int get limit => _limit;
+  List<int> get limitOptions => _limitOptions;
 
   // Summary Metrics
-  int get totalPackages => _allPackages.length;
+  int get totalPackages => _totalPackages > 0 ? _totalPackages : _allPackages.length;
   double get averageProgress {
     if (_allPackages.isEmpty) return 0.0;
     final total = _allPackages.fold<double>(0.0, (sum, item) => sum + item.progresFisikSaatIni);
@@ -33,14 +38,25 @@ class PaketProvider extends ChangeNotifier {
   void clearPackages() {
     _allPackages = [];
     _filteredPackages = [];
+    _totalPackages = 0;
     _errorMessage = null;
     _photoHistoryMap.clear();
     notifyListeners();
   }
 
-  Future<void> loadPackages({String? search, String? tahun}) async {
+  Future<void> setLimit(int newLimit) async {
+    if (_limit == newLimit) return;
+    _limit = newLimit;
+    notifyListeners();
+    await loadPackages();
+  }
+
+  Future<void> loadPackages({String? search, String? tahun, int? limit}) async {
     _isLoading = true;
     _errorMessage = null;
+    if (limit != null) {
+      _limit = limit;
+    }
     notifyListeners();
 
     try {
@@ -48,13 +64,23 @@ class PaketProvider extends ChangeNotifier {
       if (!isLoggedIn) {
         _allPackages = [];
         _filteredPackages = [];
+        _totalPackages = 0;
         _isLoading = false;
         notifyListeners();
         return;
       }
 
-      final res = await _repository.getAllPaket(search: search, tahun: tahun);
+      final res = await _repository.getAllPaket(
+        search: search ?? (_searchQuery.isNotEmpty ? _searchQuery : null),
+        tahun: tahun,
+        limit: _limit,
+      );
       _allPackages = res['paket'] as List<PaketPekerjaan>;
+      if (res['total'] != null) {
+        _totalPackages = (res['total'] as num).toInt();
+      } else {
+        _totalPackages = _allPackages.length;
+      }
       _applyFilter();
     } on ApiException catch (e) {
       _errorMessage = e.message;

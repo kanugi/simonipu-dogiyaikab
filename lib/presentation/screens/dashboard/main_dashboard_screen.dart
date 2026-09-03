@@ -297,27 +297,76 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 ),
                 const SizedBox(height: 18),
 
-                // Package List Section Title
+                // Package List Section Title & Limit Spinner Filter
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Daftar Paket Pekerjaan (${paketProvider.packages.length})',
+                            style: AppStyles.titleMedium(context),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Menampilkan ${paketProvider.packages.length} dari ${paketProvider.totalPackages} paket',
+                            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
                       children: [
-                        Text(
-                          'Daftar Paket Pekerjaan (${paketProvider.packages.length})',
-                          style: AppStyles.titleMedium(context),
+                        // Spinner Dropdown Filter Item for Limit
+                        Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.borderLight),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(8),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              value: paketProvider.limitOptions.contains(paketProvider.limit)
+                                  ? paketProvider.limit
+                                  : paketProvider.limitOptions.first,
+                              icon: const Icon(CupertinoIcons.chevron_down, size: 14, color: AppColors.textSecondary),
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                              onChanged: (int? newValue) {
+                                if (newValue != null) {
+                                  paketProvider.setLimit(newValue);
+                                }
+                              },
+                              items: paketProvider.limitOptions.map<DropdownMenuItem<int>>((int value) {
+                                return DropdownMenuItem<int>(
+                                  value: value,
+                                  child: Text('$value item'),
+                                );
+                              }).toList(),
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Kabupaten Dogiyai',
-                          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(CupertinoIcons.refresh_thin, color: AppColors.primary, size: 20),
+                          onPressed: () => paketProvider.loadPackages(),
+                          tooltip: 'Refresh',
                         ),
                       ],
-                    ),
-                    IconButton(
-                      icon: const Icon(CupertinoIcons.refresh_thin, color: AppColors.primary, size: 20),
-                      onPressed: () => paketProvider.loadPackages(),
                     ),
                   ],
                 ),
