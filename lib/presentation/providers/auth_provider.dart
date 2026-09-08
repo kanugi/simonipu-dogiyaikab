@@ -93,6 +93,7 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    _repository.resetClient();
     await _repository.logout();
     _isLoggedIn = false;
     _user = null;
@@ -105,6 +106,7 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    _repository.resetClient();
     await _repository.setBaseUrl(newBaseUrl);
     _baseUrl = newBaseUrl;
     await logout(); // Switching environment clears token & logs out
