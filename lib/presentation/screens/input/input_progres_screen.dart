@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -116,9 +117,23 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
-        imageQuality: 90,
+        maxWidth: source == ImageSource.camera ? 1920 : null,
+        maxHeight: source == ImageSource.camera ? 1920 : null,
+        imageQuality: source == ImageSource.camera ? 85 : null,
       );
       if (pickedFile == null) return;
+
+      // ── Validasi Ukuran File dari Penyimpanan Internal (Galeri) ────────────
+      final File rawFile = File(pickedFile.path);
+      if (source == ImageSource.gallery) {
+        final int fileSizeInBytes = await rawFile.length();
+        if (fileSizeInBytes > 1024 * 1024) { // Lebih dari 1 MB
+          if (mounted) {
+            _showAlertFileTooLarge();
+          }
+          return;
+        }
+      }
 
       // Update timestamp saat foto diambil
       final DateTime captureTime = DateTime.now();
@@ -163,6 +178,15 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
         }
       }
 
+      // Verifikasi akhir ukuran file hasil olahan
+      final int finalSizeBytes = await File(finalPath).length();
+      if (source == ImageSource.gallery && finalSizeBytes > 1024 * 1024) {
+        if (mounted) {
+          _showAlertFileTooLarge();
+        }
+        return;
+      }
+
       if (mounted) {
         setState(() {
           if (photoIndex == 1) {
@@ -184,6 +208,40 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
         );
       }
     }
+  }
+
+  void _showAlertFileTooLarge() {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Row(
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                color: AppColors.error, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Ukuran file berukuran besar',
+                style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            'Ukuran file berukuran besar (lebih dari 1 MB). File foto dari galeri tidak dapat diunggah.',
+            style: GoogleFonts.inter(fontSize: 13),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Submit ───────────────────────────────────────────────────────────────────

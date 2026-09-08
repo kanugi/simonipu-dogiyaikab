@@ -325,6 +325,14 @@ Future<Map<String, dynamic>> login(
       debugPrint('Fields sent : proyekid=$proyekId, majufreal=$majufreal, majukeuangan=$majukeuangan');
       debugPrint('Response    : ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
 
+      // Cek error status code 413 (Request Entity Too Large)
+      if (response.statusCode == 413) {
+        throw ApiException(
+          'Ukuran file terlalu besar (Request Entity Too Large - 413). Batas maksimal upload foto adalah 1 MB.',
+          statusCode: 413,
+        );
+      }
+
       // Cek apakah response adalah HTML (bukan JSON)
       final contentType = response.headers['content-type'] ?? '';
       if (contentType.contains('text/html') || response.body.trimLeft().startsWith('<')) {
@@ -427,6 +435,13 @@ Future<Map<String, dynamic>> login(
       debugPrint('=== PUT /api/v1/kendali/$kendaliId ===');
       debugPrint('Status Code : ${response.statusCode}');
       debugPrint('Response    : ${response.body}');
+
+      if (response.statusCode == 413) {
+        throw ApiException(
+          'Ukuran file terlalu besar (Request Entity Too Large - 413). Batas maksimal upload foto adalah 1 MB.',
+          statusCode: 413,
+        );
+      }
 
       final contentType = response.headers['content-type'] ?? '';
       if (contentType.contains('text/html') || response.body.trimLeft().startsWith('<')) {
