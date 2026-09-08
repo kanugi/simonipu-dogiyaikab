@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
@@ -100,6 +99,17 @@ class GeotaggingService {
     image = img.bakeOrientation(image);
     debugPrint('After rotate: ${image.width}x${image.height}');
 
+    // Downscale jika resolusi gambar terlalu besar (max side 1920px)
+    const int maxDimension = 1920;
+    if (image.width > maxDimension || image.height > maxDimension) {
+      if (image.width > image.height) {
+        image = img.copyResize(image, width: maxDimension);
+      } else {
+        image = img.copyResize(image, height: maxDimension);
+      }
+      debugPrint('Resized to  : ${image.width}x${image.height}');
+    }
+
     // 5. Siapkan teks watermark
     final String timeStr = DateFormatter.formatWatermark(timestamp);
     final String gpsStr = hasLocation
@@ -118,9 +128,26 @@ class GeotaggingService {
       hasLocation: hasLocation,
     );
 
-    // 7. Encode ke JPEG quality 88
-    final Uint8List outputBytes = img.encodeJpg(image, quality: 88);
-    debugPrint('Output size : ${(outputBytes.length / 1024).round()}KB');
+    // 7. Encode ke JPEG dengan penyesuaian kualitas agar terjamin < 1 MB
+    const int maxSizeBytes = 1024 * 1024; // 1 MB (1,048,576 bytes)
+    int quality = 85;
+    Uint8List outputBytes = img.encodeJpg(image, quality: quality);
+    debugPrint('Initial encode (q$quality): ${(outputBytes.length / 1024).round()}KB');
+
+    // Kompresi iteratif jika file masih >= 1 MB
+    while (outputBytes.length >= maxSizeBytes && quality > 20) {
+      quality -= 10;
+      outputBytes = img.encodeJpg(image, quality: quality);
+      debugPrint('Compressed (q$quality): ${(outputBytes.length / 1024).round()}KB');
+    }
+
+    // Jika sudah quality 20 namun masih >= 1 MB, downscale dimensi gambar dan re-encode
+    if (outputBytes.length >= maxSizeBytes) {
+      final int newWidth = (image.width * 0.7).toInt();
+      image = img.copyResize(image, width: newWidth);
+      outputBytes = img.encodeJpg(image, quality: 70);
+      debugPrint('Downscaled resize to ${image.width}x${image.height}: ${(outputBytes.length / 1024).round()}KB');
+    }
 
     // 8. Simpan ke temp directory (file BARU — foto asli tidak diubah)
     final Directory tempDir = await getTemporaryDirectory();
@@ -134,7 +161,7 @@ class GeotaggingService {
       throw Exception('Gagal menyimpan foto ber-watermark ke: $outPath');
     }
 
-    debugPrint('Output path : $outPath ✅');
+    debugPrint('Output path : $outPath ✅ (${(outputBytes.length / 1024).round()} KB)');
     debugPrint('=======================================');
 
     return GeotagResult(path: outPath, hasLocation: hasLocation);
@@ -251,14 +278,14 @@ class GeotaggingService {
     final int top = math.min(y1, y2).clamp(0, image.height - 1);
     final int right = math.max(x1, x2).clamp(0, image.width - 1);
     final int bottom = math.max(y1, y2).clamp(0, image.height - 1);
-    final double alpha = (color.a as num).toDouble() / 255.0;
+    final double alpha = color.a.toDouble() / 255.0;
 
     for (int y = top; y <= bottom; y++) {
       for (int x = left; x <= right; x++) {
         final existing = image.getPixel(x, y);
-        final int r = ((color.r as num) * alpha + (existing.r as num) * (1 - alpha)).round();
-        final int g = ((color.g as num) * alpha + (existing.g as num) * (1 - alpha)).round();
-        final int b = ((color.b as num) * alpha + (existing.b as num) * (1 - alpha)).round();
+        final int r = (color.r * alpha + existing.r * (1 - alpha)).round();
+        final int g = (color.g * alpha + existing.g * (1 - alpha)).round();
+        final int b = (color.b * alpha + existing.b * (1 - alpha)).round();
         image.setPixelRgba(x, y, r, g, b, 255);
       }
     }
