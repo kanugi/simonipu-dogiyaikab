@@ -20,6 +20,16 @@ class ApiException implements Exception {
 
 class ApiService {
   final SessionManager _sessionManager = SessionManager();
+  http.Client _client = http.Client();
+
+  /// Reset dan tutup semua socket TCP menggantung pada http.Client instance
+  void resetClient() {
+    try {
+      _client.close();
+    } catch (_) {}
+    _client = http.Client();
+    debugPrint('ApiService: http.Client instance berhasil di-reset & socket lama ditutup.');
+  }
 
   Future<String> _getBaseUrl() async {
     return await _sessionManager.getBaseUrl();
@@ -55,7 +65,7 @@ Future<Map<String, dynamic>> login(
 
     final stopwatch = Stopwatch()..start();
 
-    final response = await http
+    final response = await _client
         .post(
           url,
           headers: {
@@ -71,11 +81,6 @@ Future<Map<String, dynamic>> login(
 
     stopwatch.stop();
 
-    // print('LOGIN RESPONSE');
-    // print('Duration    : ${stopwatch.elapsedMilliseconds} ms');
-    // print('Status Code : ${response.statusCode}');
-    // print('Body        : ${response.body}');
-
     final Map<String, dynamic> body = jsonDecode(response.body);
 
     if (response.statusCode == 200 && body['success'] == true) {
@@ -83,10 +88,6 @@ Future<Map<String, dynamic>> login(
 
       final String token = data['token'];
       final UserModel user = UserModel.fromJson(data['user']);
-
-      // print('LOGIN SUCCESS');
-      // print('Token exists: ${token.isNotEmpty}');
-      // print('User       : ${user.username}');
 
       await _sessionManager.saveSession(
         token: token,
@@ -103,38 +104,39 @@ Future<Map<String, dynamic>> login(
           body['errors'] ??
           'Gagal login. Periksa username dan password Anda.';
 
-      // print('LOGIN FAILED');
-      // print('Message: $errorMsg');
-
       throw ApiException(
         errorMsg.toString(),
         statusCode: response.statusCode,
       );
     }
   } on SocketException catch (e) {
+    resetClient();
     debugPrint('LOGIN SOCKET ERROR: $e');
 
     throw ApiException(
       'Tidak dapat terhubung ke server API. '
-      'Periksa koneksi internet atau environment URL Anda.',
+      'Periksa koneksi internet, VPN, atau environment URL Anda.',
     );
   } on http.ClientException catch (e) {
+    resetClient();
     debugPrint('LOGIN CLIENT ERROR: $e');
 
     throw ApiException(
       'Gagal berkomunikasi dengan server API.',
     );
   } on TimeoutException catch (e) {
+    resetClient();
     debugPrint('LOGIN TIMEOUT ERROR: $e');
 
     throw ApiException(
-      'Koneksi ke server waktu habis (Timeout 15 detik). Periksa koneksi internet HP Anda.',
+      'Koneksi ke server waktu habis (Timeout 15s). Pastikan VPN/Internet Anda sudah aktif dan coba lagi.',
     );
   } on HandshakeException catch (e) {
+    resetClient();
     debugPrint('LOGIN HANDSHAKE ERROR: $e');
 
     throw ApiException(
-      'Gagal verifikasi sertifikat SSL server. Pastikan HP terhubung ke internet.',
+      'Gagal verifikasi sertifikat SSL server. Pastikan HP terhubung ke internet/VPN.',
     );
   }
 }
@@ -167,7 +169,7 @@ Future<Map<String, dynamic>> login(
       final url = Uri.parse('$baseUrl/api/v1/paket').replace(queryParameters: queryParams);
       final headers = await _getHeaders();
 
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+      final response = await _client.get(url, headers: headers).timeout(const Duration(seconds: 15));
       final Map<String, dynamic> body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {
@@ -186,7 +188,11 @@ Future<Map<String, dynamic>> login(
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
       }
     } on SocketException {
+      resetClient();
       throw ApiException('Koneksi internet bermasalah saat mengambil data paket.');
+    } on TimeoutException {
+      resetClient();
+      throw ApiException('Waktu koneksi habis saat mengambil data paket. Coba periksa VPN/koneksi.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Terjadi kesalahan saat memuat paket: $e');
@@ -200,7 +206,7 @@ Future<Map<String, dynamic>> login(
       final url = Uri.parse('$baseUrl/api/v1/paket/$id');
       final headers = await _getHeaders();
 
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+      final response = await _client.get(url, headers: headers).timeout(const Duration(seconds: 15));
       final Map<String, dynamic> body = jsonDecode(response.body);
 
       if (response.statusCode == 200 && body['success'] == true) {
@@ -210,7 +216,11 @@ Future<Map<String, dynamic>> login(
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
       }
     } on SocketException {
+      resetClient();
       throw ApiException('Koneksi ke server terputus saat mengambil detail paket.');
+    } on TimeoutException {
+      resetClient();
+      throw ApiException('Waktu koneksi habis saat mengambil detail paket.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Terjadi kesalahan detail paket: $e');
@@ -224,7 +234,7 @@ Future<Map<String, dynamic>> login(
       final url = Uri.parse('$baseUrl/api/v1/paket/$id/foto');
       final headers = await _getHeaders();
 
-      final response = await http
+      final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 15));
       final Map<String, dynamic> body = jsonDecode(response.body);
@@ -240,7 +250,11 @@ Future<Map<String, dynamic>> login(
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
       }
     } on SocketException {
+      resetClient();
       throw ApiException('Koneksi ke server terputus saat memuat foto riwayat.');
+    } on TimeoutException {
+      resetClient();
+      throw ApiException('Waktu koneksi habis saat memuat foto riwayat.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Terjadi kesalahan saat memuat foto riwayat: $e');
@@ -467,7 +481,7 @@ Future<Map<String, dynamic>> login(
       final url = Uri.parse('$baseUrl/api/v1/kendali/$kendaliId');
       final headers = await _getHeaders();
 
-      final response = await http.delete(url, headers: headers).timeout(const Duration(seconds: 15));
+      final response = await _client.delete(url, headers: headers).timeout(const Duration(seconds: 15));
       final Map<String, dynamic> body = jsonDecode(response.body);
 
       debugPrint('=== DELETE /api/v1/kendali/$kendaliId ===');
@@ -483,7 +497,11 @@ Future<Map<String, dynamic>> login(
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
       }
     } on SocketException {
+      resetClient();
       throw ApiException('Koneksi internet bermasalah saat menghapus lembar kendali.');
+    } on TimeoutException {
+      resetClient();
+      throw ApiException('Waktu koneksi habis saat menghapus lembar kendali.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Terjadi kesalahan saat menghapus lembar kendali: $e');

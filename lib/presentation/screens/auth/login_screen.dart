@@ -88,6 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
+      // resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(

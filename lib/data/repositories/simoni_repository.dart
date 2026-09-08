@@ -103,4 +103,8 @@ class SimoniRepository {
   Future<void> logout() async {
     await _sessionManager.clearSession();
   }
+
+  void resetClient() {
+    _apiService.resetClient();
+  }
 }
