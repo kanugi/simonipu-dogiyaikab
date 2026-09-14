@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/geotagging_service.dart';
+import '../../../core/utils/permission_service.dart';
 import '../../../data/models/paket_pekerjaan.dart';
 import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
@@ -115,6 +116,17 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
 
   Future<void> _pickImage(int photoIndex, ImageSource source) async {
     try {
+      // ── Periksa & Minta Izin Runtime Kamera / Galeri ──────────────────────
+      if (source == ImageSource.camera) {
+        final bool hasPermission =
+            await PermissionService.requestCameraPermission(context);
+        if (!hasPermission) return;
+      } else {
+        final bool hasPermission =
+            await PermissionService.requestGalleryPermission(context);
+        if (!hasPermission) return;
+      }
+
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
         maxWidth: source == ImageSource.camera ? 1920 : null,
