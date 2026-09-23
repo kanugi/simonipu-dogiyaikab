@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_styles.dart';
-import '../../../data/datasources/session_manager.dart';
 import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
 import '../../providers/auth_provider.dart';
@@ -12,112 +11,6 @@ import '../../providers/paket_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
-
-  void _showChangeEnvironmentDialog(BuildContext context, AuthProvider authProvider) {
-    final currentUrl = authProvider.baseUrl;
-
-    showCupertinoModalPopup(
-      context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        title: Text('Pilih Server Environment', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold)),
-        message: Text('Mengubah environment akan me-logout sesi aktif dan membawa Anda ke layar Login.', style: GoogleFonts.inter(fontSize: 12)),
-        actions: [
-          CupertinoActionSheetAction(
-            isDefaultAction: currentUrl == SessionManager.defaultBaseUrl,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (currentUrl == SessionManager.defaultBaseUrl)
-                  const Icon(CupertinoIcons.checkmark_alt, size: 18, color: AppColors.primary),
-                if (currentUrl == SessionManager.defaultBaseUrl)
-                  const SizedBox(width: 8),
-                const Text('Server Utama (Production)\nsimoni-pu.dogiyaikab.go.id', textAlign: TextAlign.center),
-              ],
-            ),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              if (currentUrl != SessionManager.defaultBaseUrl) {
-                _confirmSwitchEnvironment(context, authProvider, SessionManager.defaultBaseUrl);
-              }
-            },
-          ),
-          CupertinoActionSheetAction(
-            isDefaultAction: currentUrl == SessionManager.localBaseUrl,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (currentUrl == SessionManager.localBaseUrl)
-                  const Icon(CupertinoIcons.checkmark_alt, size: 18, color: AppColors.primary),
-                if (currentUrl == SessionManager.localBaseUrl)
-                  const SizedBox(width: 8),
-                const Text('Server Lokal (Development)\nsimoni-pu.khel.my.id', textAlign: TextAlign.center),
-              ],
-            ),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              if (currentUrl != SessionManager.localBaseUrl) {
-                _confirmSwitchEnvironment(context, authProvider, SessionManager.localBaseUrl);
-              }
-            },
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          child: const Text('Batal'),
-          onPressed: () => Navigator.of(ctx).pop(),
-        ),
-      ),
-    );
-  }
-
-  void _confirmSwitchEnvironment(BuildContext context, AuthProvider authProvider, String targetUrl) {
-    showCupertinoDialog(
-      context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: Row(
-          children: [
-            const Icon(CupertinoIcons.exclamationmark_triangle_fill, color: AppColors.warning, size: 22),
-            const SizedBox(width: 8),
-            Text('Konfirmasi Ubah ENV', style: GoogleFonts.outfit()),
-          ],
-        ),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Text(
-            'Mengubah Server API ke:\n$targetUrl\n\nSesi login Anda akan diakhiri dan Anda akan dikembalikan ke halaman login dengan environment baru.',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              ),
-          ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('Batal'),
-            onPressed: () => Navigator.of(ctx).pop(),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text('Ubah & Logout'),
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              try {
-                if (context.mounted) {
-                  Provider.of<PaketProvider>(context, listen: false).clearPackages();
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
-                await authProvider.switchEnvironment(targetUrl);
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal mengganti environment: $e')),
-                  );
-                }
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +119,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Server Environment Section
+              // Server Environment Section (Read-Only Status)
               Text(
                 'Konfigurasi Server API',
                 style: AppStyles.titleMedium(context),
@@ -235,14 +128,14 @@ class SettingsScreen extends StatelessWidget {
               IosCard(
                 child: Column(
                   children: [
-                    _buildMetricRow(
-                      icon: CupertinoIcons.cloud_fill,
-                      iconColor: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
-                      title: 'Environment Terpilih',
-                      subtitle: authProvider.isProductionEnv ? 'Server Utama (Production)' : 'Server Lokal (Development)',
-                      value: authProvider.isProductionEnv ? 'Production' : 'Dev Local',
-                    ),
-                    const Divider(height: 20),
+                    // _buildMetricRow(
+                    //   icon: CupertinoIcons.cloud_fill,
+                    //   iconColor: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
+                    //   title: 'Environment Terpilih',
+                    //   subtitle: authProvider.isProductionEnv ? 'Server Utama (Production)' : 'Server Lokal (Development)',
+                    //   value: authProvider.isProductionEnv ? 'Production' : 'Dev Local',
+                    // ),
+                    // const Divider(height: 20),
                     _buildMetricRow(
                       icon: CupertinoIcons.link,
                       iconColor: AppColors.info,
@@ -253,16 +146,34 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-
-              // Change Environment Button
-              IosButton(
-                label: 'Ubah Environment (Switch Server)',
-                icon: CupertinoIcons.arrow_2_squarepath,
-                isSecondary: true,
-                onPressed: () => _showChangeEnvironmentDialog(context, authProvider),
+              const SizedBox(height: 10),
+              
+              // Read-Only Server Info Notice Box
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F2F7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE5E5EA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(CupertinoIcons.info_circle_fill, size: 16, color: AppColors.textSecondary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Untuk mengubah server API, silakan keluar (logout) terlebih dahulu dan atur melalui menu pengaturan di halaman Login.',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               // Logout Button
               IosButton(

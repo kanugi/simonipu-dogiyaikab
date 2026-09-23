@@ -102,13 +102,23 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> switchEnvironment(String newBaseUrl) async {
+  Future<void> setBaseUrl(String newBaseUrl) async {
     _isLoading = true;
     notifyListeners();
 
     _repository.resetClient();
     await _repository.setBaseUrl(newBaseUrl);
     _baseUrl = newBaseUrl;
-    await logout(); // Switching environment clears token & logs out
+
+    if (_isLoggedIn) {
+      await logout();
+    } else {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> switchEnvironment(String newBaseUrl) async {
+    await setBaseUrl(newBaseUrl);
   }
 }
