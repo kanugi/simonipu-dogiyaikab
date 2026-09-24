@@ -129,12 +129,22 @@ class PaketProvider extends ChangeNotifier {
   }
 
   Future<List<FotoKendali>> getPaketFotoHistory(int id) async {
+    // Hapus cache lama sebelum fetch agar tidak pernah mengembalikan data stale
+    _photoHistoryMap.remove(id);
     try {
       final history = await _repository.getPaketFotoHistory(id);
+      debugPrint('[PaketProvider] Foto history paket $id → ${history.length} item(s) diterima');
+      for (int i = 0; i < history.length; i++) {
+        final item = history[i];
+        debugPrint(
+          '  [$i] kendali#${item.kendaliId} | status="${item.status}" | fotoItems=${item.fotoItems.length}',
+        );
+      }
       _photoHistoryMap[id] = history;
       return history;
-    } catch (e) {
-      return _photoHistoryMap[id] ?? [];
+    } catch (e, stack) {
+      debugPrint('[PaketProvider] ERROR foto history paket $id: $e\n$stack');
+      return [];
     }
   }
 
@@ -163,6 +173,7 @@ class PaketProvider extends ChangeNotifier {
         info1: info1,
         info2: info2,
       );
+      _photoHistoryMap.remove(proyekId);
       await loadPackages(); // Refresh packages list
       _isLoading = false;
       notifyListeners();
@@ -205,6 +216,7 @@ class PaketProvider extends ChangeNotifier {
         info1: info1,
         info2: info2,
       );
+      _photoHistoryMap.clear();
       await loadPackages(); // Refresh packages list
       _isLoading = false;
       notifyListeners();
@@ -229,6 +241,7 @@ class PaketProvider extends ChangeNotifier {
 
     try {
       await _repository.deleteKendali(kendaliId);
+      _photoHistoryMap.clear();
       await loadPackages(); // Refresh packages list
       _isLoading = false;
       notifyListeners();

@@ -261,7 +261,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                               ),
                               child: Center(
                                 child: Text(
-                                  'Belum ada foto lembar kendali yang terverifikasi untuk paket ini.',
+                                  'Belum ada foto lembar kendali untuk paket ini.',
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
@@ -278,7 +278,28 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                             itemCount: fotoList.length,
                             itemBuilder: (context, index) {
                               final item = fotoList[index];
-                              final bool isPending = item.status.toLowerCase() == 'pending';
+                              final statusLower = item.status.trim().toLowerCase();
+                              final bool isPending = statusLower == 'pending' || statusLower == 'draft' || statusLower == 'menunggu';
+                              final bool isApproved = statusLower == 'approved' || statusLower == 'verified' || statusLower == 'terverifikasi';
+                              final bool isRejected = statusLower == 'rejected' || statusLower == 'ditolak';
+
+                              Color badgeBgColor;
+                              Color badgeTextColor;
+                              String displayStatus;
+
+                              if (isApproved) {
+                                badgeBgColor = AppColors.successBg;
+                                badgeTextColor = AppColors.success;
+                                displayStatus = 'APPROVED';
+                              } else if (isRejected) {
+                                badgeBgColor = const Color(0xFFF8D7DA);
+                                badgeTextColor = AppColors.error;
+                                displayStatus = 'REJECTED';
+                              } else {
+                                badgeBgColor = const Color(0xFFFFF3CD);
+                                badgeTextColor = const Color(0xFF856404);
+                                displayStatus = item.status.isNotEmpty ? item.status.toUpperCase() : 'PENDING';
+                              }
 
                               return IosCard(
                                 margin: const EdgeInsets.only(bottom: 16),
@@ -299,8 +320,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                         ),
                                         Row(
                                           children: [
-                                            // Tombol Edit dan Hapus hanya muncul jika status == Pending
-                                            if (isPending) ...[
+                                            // Tombol Edit muncul jika status Pending atau Rejected
+                                            if (isPending || isRejected) ...[
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
@@ -345,6 +366,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                                 ),
                                               ),
                                               const SizedBox(width: 6),
+                                            ],
+                                            if (isPending) ...[
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
@@ -380,21 +403,15 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                               padding: const EdgeInsets.symmetric(
                                                   horizontal: 8, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: item.status.toLowerCase() == 'approved'
-                                                    ? AppColors.successBg
-                                                    : const Color(0xFFFFF3CD),
+                                                color: badgeBgColor,
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
                                               child: Text(
-                                                item.status.isNotEmpty
-                                                    ? item.status.toUpperCase()
-                                                    : 'VERIFIED',
+                                                displayStatus,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.bold,
-                                                  color: item.status.toLowerCase() == 'approved'
-                                                      ? AppColors.success
-                                                      : const Color(0xFF856404),
+                                                  color: badgeTextColor,
                                                 ),
                                               ),
                                             ),
