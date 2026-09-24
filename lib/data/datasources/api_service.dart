@@ -234,17 +234,59 @@ Future<Map<String, dynamic>> login(
       final url = Uri.parse('$baseUrl/api/v1/paket/$id/foto');
       final headers = await _getHeaders();
 
+      // Tambahkan Cache-Control agar proxy/CDN tidak mengembalikan respons lama
+      headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      headers['Pragma'] = 'no-cache';
+
+      debugPrint('[ApiService] GET $url');
+
       final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 15));
+
+      debugPrint('[ApiService] Response status: ${response.statusCode}');
+      debugPrint('[ApiService] Response body (500 chars): '
+          '${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
+
       final Map<String, dynamic> body = jsonDecode(response.body);
 
-      if (response.statusCode == 200 && body['success'] == true) {
-        final data = body['data'] as Map<String, dynamic>? ?? {};
-        final List<dynamic> dataList = data['foto'] as List<dynamic>? ?? [];
-        return dataList
-            .map((item) => FotoKendali.fromJson(item as Map<String, dynamic>))
-            .toList();
+      if (response.statusCode == 200 &&
+          (body['success'] == true || body['status'] == 200)) {
+        final data = body['data'];
+        List<dynamic> dataList = [];
+        if (data is Map) {
+          final fotoVal = data['foto'];
+          if (fotoVal is List) {
+            dataList = fotoVal;
+          } else if (data['data'] is List) {
+            dataList = data['data'] as List;
+          }
+        } else if (data is List) {
+          dataList = data;
+        }
+
+        debugPrint('[ApiService] dataList.length = ${dataList.length}');
+
+        final List<FotoKendali> result = [];
+        for (int i = 0; i < dataList.length; i++) {
+          final item = dataList[i];
+          if (item is Map<String, dynamic>) {
+            try {
+              final parsed = FotoKendali.fromJson(item);
+              result.add(parsed);
+              debugPrint(
+                '[ApiService] ✓ parsed[$i] kendali#${parsed.kendaliId} status="${parsed.status}"',
+              );
+            } catch (e, s) {
+              debugPrint('[ApiService] ✗ GAGAL parse item[$i] ($item): $e\n$s');
+            }
+          } else {
+            debugPrint('[ApiService] ✗ item[$i] bukan Map<String,dynamic>: ${item.runtimeType}');
+          }
+        }
+
+        debugPrint('[ApiService] Total berhasil di-parse: ${result.length}/${dataList.length}');
+        return result;
       } else {
         final errorMsg = body['message'] ?? 'Gagal mengambil foto riwayat kendali.';
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
