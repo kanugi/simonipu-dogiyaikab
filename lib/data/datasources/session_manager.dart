@@ -5,7 +5,8 @@ import '../models/user_model.dart';
 class SessionManager {
   static const String defaultBaseUrl = 'https://simoni-pu.dogiyaikab.go.id';
   // static const String localBaseUrl = 'http://localhost:8085';
-  static const String localBaseUrl = 'https://simoni-pu.khel.my.id';
+  // static const String localBaseUrl = 'https://simoni-pu.khel.my.id';
+  static const String localBaseUrl = 'https://blinker-upfront-rifling.ngrok-free.dev';
 
   static const String _keyIsLoggedIn = 'is_logged_in';
   static const String _keyToken = 'bearer_token';

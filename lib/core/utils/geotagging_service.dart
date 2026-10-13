@@ -99,8 +99,8 @@ class GeotaggingService {
     image = img.bakeOrientation(image);
     debugPrint('After rotate: ${image.width}x${image.height}');
 
-    // Downscale jika resolusi gambar terlalu besar (max side 1920px)
-    const int maxDimension = 1920;
+    // Downscale jika resolusi gambar terlalu besar (max side 1280px untuk proteksi RAM HP < 200KB)
+    const int maxDimension = 1280;
     if (image.width > maxDimension || image.height > maxDimension) {
       if (image.width > image.height) {
         image = img.copyResize(image, width: maxDimension);
@@ -128,24 +128,24 @@ class GeotaggingService {
       hasLocation: hasLocation,
     );
 
-    // 7. Encode ke JPEG dengan penyesuaian kualitas agar terjamin < 1 MB
-    const int maxSizeBytes = 1024 * 1024; // 1 MB (1,048,576 bytes)
-    int quality = 85;
+    // 7. Encode ke JPEG dengan target ukuran di bawah 200 KB (204,800 bytes)
+    const int maxSizeBytes = 200 * 1024; // Maksimum 200 KB
+    int quality = 75;
     Uint8List outputBytes = img.encodeJpg(image, quality: quality);
     debugPrint('Initial encode (q$quality): ${(outputBytes.length / 1024).round()}KB');
 
-    // Kompresi iteratif jika file masih >= 1 MB
-    while (outputBytes.length >= maxSizeBytes && quality > 20) {
+    // Kompresi iteratif jika file masih > 200 KB
+    while (outputBytes.length > maxSizeBytes && quality > 35) {
       quality -= 10;
       outputBytes = img.encodeJpg(image, quality: quality);
       debugPrint('Compressed (q$quality): ${(outputBytes.length / 1024).round()}KB');
     }
 
-    // Jika sudah quality 20 namun masih >= 1 MB, downscale dimensi gambar dan re-encode
-    if (outputBytes.length >= maxSizeBytes) {
-      final int newWidth = (image.width * 0.7).toInt();
+    // Jika sudah quality 35 namun masih > 200 KB, downscale dimensi gambar 80% dan re-encode
+    if (outputBytes.length > maxSizeBytes) {
+      final int newWidth = (image.width * 0.8).toInt();
       image = img.copyResize(image, width: newWidth);
-      outputBytes = img.encodeJpg(image, quality: 70);
+      outputBytes = img.encodeJpg(image, quality: 65);
       debugPrint('Downscaled resize to ${image.width}x${image.height}: ${(outputBytes.length / 1024).round()}KB');
     }
 

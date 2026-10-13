@@ -30,20 +30,32 @@ double _parseDouble(dynamic value) {
 /// Model untuk satu entri riwayat kendali beserta daftar fotonya
 class FotoKendali {
   final int kendaliId;
+  final String clientUuid;
+  final int proyekid;
   final String keterangan;
   final String status;
   final double majufreal;
   final double majukeuangan;
+  final String syncStatus; // pending_sync, syncing, synced, failed_validation
+  final String? syncError;
+  final String? foto1LocalPath;
+  final String? foto2LocalPath;
 
   /// Daftar foto dinamis (foto1, foto2, ...) yang diparse dari map `foto` di JSON
   final List<FotoItem> fotoItems;
 
   FotoKendali({
     required this.kendaliId,
+    this.clientUuid = '',
+    this.proyekid = 0,
     required this.keterangan,
     required this.status,
     this.majufreal = 0.0,
     this.majukeuangan = 0.0,
+    this.syncStatus = 'synced',
+    this.syncError,
+    this.foto1LocalPath,
+    this.foto2LocalPath,
     required this.fotoItems,
   });
 
@@ -107,16 +119,69 @@ class FotoKendali {
       }
     }
 
-    final rawStatus = (json['status'] ?? json['status_kendali'] ?? json['st'] ?? '').toString();
+    final rawStatus = (json['status'] ?? json['status_kendali'] ?? json['st'] ?? 'pending').toString();
 
     return FotoKendali(
       kendaliId: _parseInt(json['kendaliid'] ?? json['id']),
+      clientUuid: json['client_uuid']?.toString() ?? '',
+      proyekid: _parseInt(json['proyekid']),
       keterangan: json['keterangan']?.toString() ?? '',
       status: rawStatus,
       majufreal: _parseDouble(json['majufreal'] ?? json['progres_fisik']),
       majukeuangan: _parseDouble(json['majukeuangan'] ?? json['nilai_keuangan']),
+      syncStatus: json['sync_status']?.toString() ?? 'synced',
+      syncError: json['sync_error']?.toString(),
       fotoItems: items,
     );
+  }
+
+  factory FotoKendali.fromLocalMap(Map<String, dynamic> map) {
+    final List<FotoItem> items = [];
+    final String p1 = map['foto1_local_path']?.toString() ?? '';
+    final String p2 = map['foto2_local_path']?.toString() ?? '';
+    final String i1 = map['info1']?.toString() ?? '';
+    final String i2 = map['info2']?.toString() ?? '';
+
+    if (p1.isNotEmpty) {
+      items.add(FotoItem(url: p1, info: i1));
+    }
+    if (p2.isNotEmpty) {
+      items.add(FotoItem(url: p2, info: i2));
+    }
+
+    return FotoKendali(
+      kendaliId: _parseInt(map['kendaliid']),
+      clientUuid: map['client_uuid']?.toString() ?? '',
+      proyekid: _parseInt(map['proyekid']),
+      keterangan: map['keterangan']?.toString() ?? '',
+      status: map['status_bisnis']?.toString() ?? map['status']?.toString() ?? 'pending',
+      majufreal: _parseDouble(map['majufreal']),
+      majukeuangan: _parseDouble(map['majukeuangan']),
+      syncStatus: map['sync_status']?.toString() ?? 'pending_sync',
+      syncError: map['sync_error']?.toString(),
+      foto1LocalPath: p1,
+      foto2LocalPath: p2,
+      fotoItems: items,
+    );
+  }
+
+  Map<String, dynamic> toLocalMap() {
+    return {
+      'client_uuid': clientUuid,
+      'kendaliid': kendaliId > 0 ? kendaliId : null,
+      'proyekid': proyekid,
+      'majufreal': majufreal,
+      'majukeuangan': majukeuangan,
+      'keterangan': keterangan,
+      'info1': info1,
+      'info2': info2,
+      'foto1_local_path': foto1LocalPath ?? foto1Url,
+      'foto2_local_path': foto2LocalPath ?? foto2Url,
+      'sync_status': syncStatus,
+      'sync_error': syncError,
+      'status_bisnis': status,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
   }
 
   // ── Backward-compat getters (supaya tidak perlu ubah UI untuk kasus 2 foto) ──

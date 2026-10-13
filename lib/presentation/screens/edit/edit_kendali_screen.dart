@@ -142,9 +142,9 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
 
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
-        maxWidth: source == ImageSource.camera ? 1920 : null,
-        maxHeight: source == ImageSource.camera ? 1920 : null,
-        imageQuality: source == ImageSource.camera ? 85 : null,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 75,
       );
       if (pickedFile == null) return;
 
