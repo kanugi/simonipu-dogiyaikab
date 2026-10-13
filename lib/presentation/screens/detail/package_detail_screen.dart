@@ -10,6 +10,7 @@ import '../../../data/models/paket_pekerjaan.dart';
 import '../../../widgets/card.dart';
 import '../../../widgets/status_badge.dart';
 import '../../providers/paket_provider.dart';
+import '../../providers/sync_provider.dart';
 import '../edit/edit_kendali_screen.dart';
 import '../input/input_progres_screen.dart';
 
@@ -57,6 +58,49 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             color: AppColors.textPrimary,
           ),
         ),
+        actions: [
+          Consumer<SyncProvider>(
+            builder: (context, syncProv, child) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: syncProv.isSyncing
+                        ? const CupertinoActivityIndicator(radius: 10)
+                        : const Icon(CupertinoIcons.refresh, color: AppColors.primary),
+                    tooltip: 'Sinkronkan Data Offline',
+                    onPressed: syncProv.isSyncing
+                        ? null
+                        : () async {
+                            await syncProv.performBiDirectionalSync();
+                            if (mounted) {
+                              setState(() {
+                                _loadData();
+                              });
+                            }
+                          },
+                  ),
+                  if (syncProv.queueCount > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${syncProv.queueCount}',
+                          style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: FutureBuilder<PaketPekerjaan?>(

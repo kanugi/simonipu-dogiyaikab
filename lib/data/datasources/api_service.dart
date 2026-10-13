@@ -42,6 +42,7 @@ class ApiService {
       headers['Content-Type'] = 'application/json';
       headers['Accept'] = 'application/json';
     }
+    headers['ngrok-skip-browser-warning'] = 'true';
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
@@ -562,6 +563,54 @@ Future<Map<String, dynamic>> login(
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Terjadi kesalahan saat menghapus lembar kendali: $e');
+    }
+  }
+
+  /// h.) POST Bi-Directional Sync [/api/v1/sync]
+  Future<Map<String, dynamic>> syncBiDirectional({
+    String? lastSyncAt,
+    required List<Map<String, dynamic>> changes,
+  }) async {
+    try {
+      final baseUrl = await _getBaseUrl();
+      final url = Uri.parse('$baseUrl/api/v1/sync');
+      final headers = await _getHeaders();
+
+      final payload = {
+        'last_sync_at': lastSyncAt,
+        'changes': changes,
+      };
+
+      debugPrint('=== POST /api/v1/sync ===');
+      debugPrint('Payload size changes : ${changes.length}');
+
+      final response = await _client
+          .post(
+            url,
+            headers: headers,
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      final Map<String, dynamic> body = jsonDecode(response.body);
+
+      debugPrint('Status Code : ${response.statusCode}');
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return body['data'] as Map<String, dynamic>;
+      } else {
+        final errorMsg = body['message'] ?? 'Gagal melakukan sinkronisasi dengan server.';
+        throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
+      }
+    } on SocketException {
+      resetClient();
+      throw ApiException('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+    } on TimeoutException {
+      resetClient();
+      throw ApiException('Waktu sinkronisasi habis (timeout). Coba lagi nanti.');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Terjadi kesalahan sistem saat sync: $e');
     }
   }
 }

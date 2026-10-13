@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/api_service.dart';
+import '../../data/datasources/database_helper.dart';
 import '../../data/models/foto_kendali.dart';
 import '../../data/models/paket_pekerjaan.dart';
 import '../../data/repositories/simoni_repository.dart';
@@ -129,23 +130,37 @@ class PaketProvider extends ChangeNotifier {
   }
 
   Future<List<FotoKendali>> getPaketFotoHistory(int id) async {
-    // Hapus cache lama sebelum fetch agar tidak pernah mengembalikan data stale
     _photoHistoryMap.remove(id);
+    List<FotoKendali> serverHistory = [];
     try {
-      final history = await _repository.getPaketFotoHistory(id);
-      debugPrint('[PaketProvider] Foto history paket $id → ${history.length} item(s) diterima');
-      for (int i = 0; i < history.length; i++) {
-        final item = history[i];
-        debugPrint(
-          '  [$i] kendali#${item.kendaliId} | status="${item.status}" | fotoItems=${item.fotoItems.length}',
-        );
-      }
-      _photoHistoryMap[id] = history;
-      return history;
-    } catch (e, stack) {
-      debugPrint('[PaketProvider] ERROR foto history paket $id: $e\n$stack');
-      return [];
+      serverHistory = await _repository.getPaketFotoHistory(id);
+      debugPrint('[PaketProvider] Foto history server paket $id → ${serverHistory.length} item(s)');
+    } catch (e) {
+      debugPrint('[PaketProvider] Offline / Gagal fetch server history paket $id: $e');
     }
+
+    // Ambil data lokal dari SQLite
+    final localItems = await DatabaseHelper().getKendaliByPackageId(id);
+    debugPrint('[PaketProvider] Foto history SQLite lokal paket $id → ${localItems.length} item(s)');
+
+    final Map<String, FotoKendali> mergedMap = {};
+
+    // 1. Masukkan data server
+    for (final s in serverHistory) {
+      final key = s.clientUuid.isNotEmpty ? s.clientUuid : 'kendali_${s.kendaliId}';
+      mergedMap[key] = s;
+    }
+
+    // 2. Timpa/Tambahkan dengan data lokal (terutama yang pending_sync)
+    for (final l in localItems) {
+      final key = l.clientUuid.isNotEmpty ? l.clientUuid : (l.kendaliId > 0 ? 'kendali_${l.kendaliId}' : 'local_${l.hashCode}');
+      mergedMap[key] = l;
+    }
+
+    final mergedList = mergedMap.values.toList();
+
+    _photoHistoryMap[id] = mergedList;
+    return mergedList;
   }
 
   Future<bool> postKendaliProgress({

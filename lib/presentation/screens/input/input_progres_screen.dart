@@ -15,6 +15,7 @@ import '../../../widgets/card.dart';
 import '../../../widgets/text_field.dart';
 import '../../../widgets/watermark_preview.dart';
 import '../../providers/paket_provider.dart';
+import '../../providers/sync_provider.dart';
 
 class InputProgresScreen extends StatefulWidget {
   final PaketPekerjaan package;
@@ -129,9 +130,9 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
 
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
-        maxWidth: source == ImageSource.camera ? 1920 : null,
-        maxHeight: source == ImageSource.camera ? 1920 : null,
-        imageQuality: source == ImageSource.camera ? 85 : null,
+        maxWidth: source == ImageSource.camera ? 1280 : null,
+        maxHeight: source == ImageSource.camera ? 1280 : null,
+        imageQuality: source == ImageSource.camera ? 75 : null,
       );
       if (pickedFile == null) return;
 
@@ -271,7 +272,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
 
     if (_formKey.currentState!.validate()) {
       FocusScope.of(context).unfocus();
-      final paketProvider = Provider.of<PaketProvider>(context, listen: false);
+      final syncProvider = Provider.of<SyncProvider>(context, listen: false);
 
       final double majukeuangan = double.tryParse(
             _keuanganTextController.text
@@ -281,59 +282,50 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
           0.0;
 
       try {
-        final success = await paketProvider.postKendaliProgress(
-          proyekId: widget.package.id,
+        await syncProvider.saveKendaliOffline(
+          proyekid: widget.package.id,
           majufreal: _progresFisik,
           majukeuangan: majukeuangan,
           keterangan: _catatanController.text.trim(),
           foto1Path: _foto1Path!,
           foto2Path: _foto2Path,
-          info1: _info1Controller.text.trim().isNotEmpty
-              ? _info1Controller.text.trim()
-              : null,
-          info2: _info2Controller.text.trim().isNotEmpty
-              ? _info2Controller.text.trim()
-              : null,
+          info1: _info1Controller.text.trim(),
+          info2: _info2Controller.text.trim(),
         );
 
         if (mounted) {
-          if (success) {
-            showCupertinoDialog(
-              context: context,
-              builder: (ctx) => CupertinoAlertDialog(
-                title: Row(
-                  children: [
-                    const Icon(CupertinoIcons.checkmark_circle_fill,
-                        color: AppColors.success, size: 22),
-                    const SizedBox(width: 8),
-                    Text('Laporan Terkirim', style: GoogleFonts.outfit()),
-                  ],
-                ),
-                content: Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    'Lembar kendali progres fisik ${_progresFisik.toStringAsFixed(1)}% berhasil diterima server dan menunggu verifikasi.',
-                    style: GoogleFonts.inter(fontSize: 13),
-                  ),
-                ),
-                actions: [
-                  CupertinoDialogAction(
-                    child: const Text('OK'),
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      Navigator.of(context).pop();
-                    },
-                  ),
+          showCupertinoDialog(
+            context: context,
+            builder: (ctx) => CupertinoAlertDialog(
+              title: Row(
+                children: [
+                  const Icon(CupertinoIcons.checkmark_circle_fill,
+                      color: AppColors.success, size: 22),
+                  const SizedBox(width: 8),
+                  Text('Laporan Tersimpan', style: GoogleFonts.outfit()),
                 ],
               ),
-            );
-          } else {
-            _showErrorDialog(paketProvider.errorMessage ??
-                'Gagal mengirim data progres ke server.');
-          }
+              content: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  'Lembar kendali progres fisik ${_progresFisik.toStringAsFixed(1)}% berhasil disimpan di perangkat dan antrian sync akan berjalan otomatis.',
+                  style: GoogleFonts.inter(fontSize: 13),
+                ),
+              ),
+              actions: [
+                CupertinoDialogAction(
+                  child: const Text('OK'),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    Navigator.of(context).pop(true);
+                  },
+                ),
+              ],
+            ),
+          );
         }
       } catch (e) {
-        if (mounted) _showErrorDialog('Terjadi kesalahan: $e');
+        if (mounted) _showErrorDialog('Terjadi kesalahan saat menyimpan offline: $e');
       }
     }
   }
@@ -600,7 +592,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Nilai Tagihan Keuangan',
+                        'Input Nominal Tagihan Baru (Rp)',
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
