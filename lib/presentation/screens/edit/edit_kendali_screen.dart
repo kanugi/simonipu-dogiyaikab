@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -230,12 +229,14 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
   }
 
   void _showAlertFileTooLarge() {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
         title: Row(
           children: [
-            const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+            const Icon(Icons.warning_amber_rounded,
                 color: AppColors.error, size: 22),
             const SizedBox(width: 8),
             Expanded(
@@ -254,7 +255,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
           ),
         ),
         actions: [
-          CupertinoDialogAction(
+          TextButton(
             child: const Text('OK'),
             onPressed: () => Navigator.of(ctx).pop(),
           ),
@@ -295,12 +296,14 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
 
         if (mounted) {
           if (success) {
-            showCupertinoDialog(
+            showDialog(
               context: context,
-              builder: (ctx) => CupertinoAlertDialog(
+              builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
                 title: Row(
                   children: [
-                    const Icon(CupertinoIcons.checkmark_circle_fill,
+                    const Icon(Icons.check_circle_rounded,
                         color: AppColors.success, size: 22),
                     const SizedBox(width: 8),
                     Text('Berhasil Diperbarui', style: GoogleFonts.outfit()),
@@ -314,7 +317,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                   ),
                 ),
                 actions: [
-                  CupertinoDialogAction(
+                  TextButton(
                     child: const Text('OK'),
                     onPressed: () {
                       Navigator.of(ctx).pop();
@@ -336,12 +339,14 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
   }
 
   void _showErrorDialog(String message) {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
         title: Row(
           children: [
-            const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+            const Icon(Icons.warning_amber_rounded,
                 color: AppColors.error, size: 22),
             const SizedBox(width: 8),
             Text('Gagal Memperbarui', style: GoogleFonts.outfit()),
@@ -352,7 +357,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
           child: Text(message, style: GoogleFonts.inter(fontSize: 13)),
         ),
         actions: [
-          CupertinoDialogAction(
+          TextButton(
             child: const Text('Tutup'),
             onPressed: () => Navigator.of(ctx).pop(),
           ),
@@ -373,7 +378,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(CupertinoIcons.back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -390,13 +395,13 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
             child: _isGettingLocation
                 ? const Padding(
                     padding: EdgeInsets.all(14),
-                    child: CupertinoActivityIndicator(radius: 9),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
                   )
                 : IconButton(
                     icon: Icon(
                       _hasLocation
-                          ? CupertinoIcons.location_fill
-                          : CupertinoIcons.location_slash_fill,
+                          ? Icons.location_on_rounded
+                          : Icons.location_off_rounded,
                       size: 18,
                       color:
                           _hasLocation ? AppColors.primary : AppColors.textSecondary,
@@ -599,7 +604,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                         hint: 'Contoh: 90000000',
                         controller: _keuanganTextController,
                         keyboardType: TextInputType.number,
-                        prefixIcon: CupertinoIcons.money_dollar_circle_fill,
+                        prefixIcon: Icons.payments_rounded,
                         validator: (val) {
                           if (val == null || val.isEmpty) {
                             return 'Nilai tagihan keuangan wajib diisi';
@@ -720,7 +725,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                         label: 'Keterangan Foto 1 (info1)',
                         hint: 'Contoh: Kondisi jembatan tampak depan...',
                         controller: _info1Controller,
-                        prefixIcon: CupertinoIcons.info_circle,
+                        prefixIcon: Icons.info_outline_rounded,
                         maxLines: 2,
                       ),
                     ],
@@ -794,7 +799,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                         label: 'Keterangan Foto 2 (info2)',
                         hint: 'Contoh: Detail penulangan beton...',
                         controller: _info2Controller,
-                        prefixIcon: CupertinoIcons.info_circle,
+                        prefixIcon: Icons.info_outline_rounded,
                         maxLines: 2,
                       ),
                     ],
@@ -805,7 +810,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                 // Submit Button
                 IosButton(
                   label: 'Simpan Perubahan Kendali',
-                  icon: CupertinoIcons.checkmark_seal_fill,
+                  icon: Icons.verified_rounded,
                   isLoading: paketProvider.isLoading,
                   onPressed: _submitEditToApi,
                 ),
@@ -846,7 +851,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                   height: 120,
                   color: Colors.grey.shade200,
                   child: const Center(
-                    child: Icon(CupertinoIcons.photo, color: Colors.grey, size: 32),
+                    child: Icon(Icons.image_outlined, color: Colors.grey, size: 32),
                   ),
                 ),
               ),
@@ -875,7 +880,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onPickCamera,
-                    icon: const Icon(CupertinoIcons.camera, size: 16),
+                    icon: const Icon(Icons.camera_alt_outlined, size: 16),
                     label: Text('Kamera', style: GoogleFonts.inter(fontSize: 12)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
@@ -890,7 +895,7 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onPickGallery,
-                    icon: const Icon(CupertinoIcons.photo, size: 16),
+                    icon: const Icon(Icons.image_outlined, size: 16),
                     label: Text('Galeri', style: GoogleFonts.inter(fontSize: 12)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textPrimary,
@@ -929,10 +934,10 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
         children: [
           Icon(
             _isGettingLocation
-                ? CupertinoIcons.location
+                ? Icons.my_location_rounded
                 : (_hasLocation
-                    ? CupertinoIcons.location_fill
-                    : CupertinoIcons.location_slash_fill),
+                    ? Icons.location_on_rounded
+                    : Icons.location_off_rounded),
             size: 14,
             color: _isGettingLocation
                 ? AppColors.primary
@@ -980,8 +985,8 @@ class _EditKendaliScreenState extends State<EditKendaliScreen> {
         children: [
           Icon(
             isWatermarked
-                ? CupertinoIcons.checkmark_seal_fill
-                : CupertinoIcons.exclamationmark_triangle_fill,
+                ? Icons.verified_rounded
+                : Icons.warning_amber_rounded,
             size: 13,
             color: isWatermarked ? AppColors.success : AppColors.warning,
           ),

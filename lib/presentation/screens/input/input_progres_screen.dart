@@ -1,14 +1,17 @@
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/geotagging_service.dart';
+import '../../../core/utils/image_storage_helper.dart';
 import '../../../core/utils/permission_service.dart';
+import '../../../data/datasources/api_service.dart';
+import '../../../data/datasources/database_helper.dart';
 import '../../../data/models/paket_pekerjaan.dart';
 import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
@@ -48,6 +51,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
   bool _isGettingLocation = false;
 
   DateTime _currentTimestamp = DateTime.now();
+  bool _isSubmitting = false;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -224,12 +228,14 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
   }
 
   void _showAlertFileTooLarge() {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
         title: Row(
           children: [
-            const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+            const Icon(Icons.warning_amber_rounded,
                 color: AppColors.error, size: 22),
             const SizedBox(width: 8),
             Expanded(
@@ -248,7 +254,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
           ),
         ),
         actions: [
-          CupertinoDialogAction(
+          TextButton(
             child: const Text('OK'),
             onPressed: () => Navigator.of(ctx).pop(),
           ),
@@ -257,9 +263,11 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
     );
   }
 
-  // ── Submit ───────────────────────────────────────────────────────────────────
+  // ── Submit (Smart-Mode: Online Direct POST / Offline Fallback) ───────────────
 
   void _submitProgressToApi() async {
+    if (_isSubmitting) return;
+
     if (_foto1Path == null || _foto1Path!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -272,6 +280,9 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
 
     if (_formKey.currentState!.validate()) {
       FocusScope.of(context).unfocus();
+      setState(() => _isSubmitting = true);
+
+      final paketProvider = Provider.of<PaketProvider>(context, listen: false);
       final syncProvider = Provider.of<SyncProvider>(context, listen: false);
 
       final double majukeuangan = double.tryParse(
@@ -281,62 +292,222 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
           ) ??
           0.0;
 
-      try {
-        await syncProvider.saveKendaliOffline(
-          proyekid: widget.package.id,
-          majufreal: _progresFisik,
-          majukeuangan: majukeuangan,
-          keterangan: _catatanController.text.trim(),
-          foto1Path: _foto1Path!,
-          foto2Path: _foto2Path,
-          info1: _info1Controller.text.trim(),
-          info2: _info2Controller.text.trim(),
-        );
+      final clientUuid = const Uuid().v4();
 
-        if (mounted) {
-          showCupertinoDialog(
-            context: context,
-            builder: (ctx) => CupertinoAlertDialog(
-              title: Row(
-                children: [
-                  const Icon(CupertinoIcons.checkmark_circle_fill,
-                      color: AppColors.success, size: 22),
-                  const SizedBox(width: 8),
-                  Text('Laporan Tersimpan', style: GoogleFonts.outfit()),
+      try {
+        // 1. Amankan file foto ke storage permanen aplikasi
+        final savedFoto1 = await ImageStorageHelper.saveImageToAppStorage(
+          _foto1Path!,
+          prefix: 'k1_${widget.package.id}',
+        );
+        final savedFoto2 = (_foto2Path != null && _foto2Path!.isNotEmpty)
+            ? await ImageStorageHelper.saveImageToAppStorage(
+                _foto2Path!,
+                prefix: 'k2_${widget.package.id}',
+              )
+            : null;
+
+        try {
+          // 2. Coba kirim langsung via Direct REST API (Online Mode)
+          final postResult = await paketProvider.postKendaliProgress(
+            proyekId: widget.package.id,
+            majufreal: _progresFisik,
+            majukeuangan: majukeuangan,
+            keterangan: _catatanController.text.trim(),
+            foto1Path: savedFoto1,
+            foto2Path: savedFoto2,
+            info1: _info1Controller.text.trim().isNotEmpty ? _info1Controller.text.trim() : null,
+            info2: _info2Controller.text.trim().isNotEmpty ? _info2Controller.text.trim() : null,
+            clientUuid: clientUuid,
+          );
+
+          int? serverKendaliId;
+          final serverData = postResult['data'];
+          if (serverData is Map<String, dynamic>) {
+            serverKendaliId = serverData['kendaliid'] is num
+                ? (serverData['kendaliid'] as num).toInt()
+                : int.tryParse(serverData['kendaliid']?.toString() ?? '');
+          }
+
+          // Simpan juga ke SQLite lokal sebagai 'synced' agar cache lokal tetap up-to-date
+          await DatabaseHelper().insertKendali({
+            'client_uuid': clientUuid,
+            'kendaliid': serverKendaliId,
+            'proyekid': widget.package.id,
+            'nama_paket': widget.package.namaPaket,
+            'majufreal': _progresFisik,
+            'majukeuangan': majukeuangan,
+            'keterangan': _catatanController.text.trim(),
+            'info1': _info1Controller.text.trim(),
+            'info2': _info2Controller.text.trim(),
+            'foto1_local_path': savedFoto1,
+            'foto2_local_path': savedFoto2 ?? '',
+            'sync_status': 'synced',
+            'status_bisnis': 'pending',
+          });
+
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+                title: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded,
+                        color: AppColors.success, size: 22),
+                    const SizedBox(width: 8),
+                    Text('Laporan Terkirim', style: GoogleFonts.outfit()),
+                  ],
+                ),
+                content: Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'Lembar kendali progres fisik ${_progresFisik.toStringAsFixed(1)}% berhasil diterima server dan menunggu verifikasi.',
+                    style: GoogleFonts.inter(fontSize: 13),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    child: const Text('OK'),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).pop(true);
+                    },
+                  ),
                 ],
               ),
-              content: Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  'Lembar kendali progres fisik ${_progresFisik.toStringAsFixed(1)}% berhasil disimpan di perangkat dan antrian sync akan berjalan otomatis.',
-                  style: GoogleFonts.inter(fontSize: 13),
+            );
+          }
+        } on ApiException catch (e) {
+          if (e.isNetworkError) {
+            // FALLBACK OFFLINE KARENA JARINGAN
+            await syncProvider.saveKendaliOffline(
+              proyekid: widget.package.id,
+              namaPaket: widget.package.namaPaket,
+              majufreal: _progresFisik,
+              majukeuangan: majukeuangan,
+              keterangan: _catatanController.text.trim(),
+              info1: _info1Controller.text.trim(),
+              info2: _info2Controller.text.trim(),
+              foto1Path: savedFoto1,
+              foto2Path: savedFoto2,
+              clientUuid: clientUuid,
+            );
+
+            if (mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+                  title: Row(
+                    children: [
+                      const Icon(Icons.cloud_upload_rounded,
+                          color: AppColors.warning, size: 22),
+                      const SizedBox(width: 8),
+                      Text('Tersimpan Offline', style: GoogleFonts.outfit()),
+                    ],
+                  ),
+                  content: Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Perangkat sedang offline atau sinyal tidak stabil. Laporan kendali berhasil disimpan di antrean perangkat dan siap dikirim saat online.',
+                      style: GoogleFonts.inter(fontSize: 13),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      child: const Text('OK'),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        Navigator.of(context).pop(true);
+                      },
+                    ),
+                  ],
                 ),
-              ),
-              actions: [
-                CupertinoDialogAction(
-                  child: const Text('OK'),
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.of(context).pop(true);
-                  },
+              );
+            }
+          } else {
+            // Error validasi bisnis server (misal: 400 Bad Request, melebihi kontrak)
+            if (mounted) _showErrorDialog(e.message);
+          }
+        } catch (e) {
+          final errStr = e.toString().toLowerCase();
+          if (errStr.contains('socket') || errStr.contains('timeout') || errStr.contains('network') || errStr.contains('connection')) {
+            // FALLBACK OFFLINE
+            await syncProvider.saveKendaliOffline(
+              proyekid: widget.package.id,
+              namaPaket: widget.package.namaPaket,
+              majufreal: _progresFisik,
+              majukeuangan: majukeuangan,
+              keterangan: _catatanController.text.trim(),
+              info1: _info1Controller.text.trim(),
+              info2: _info2Controller.text.trim(),
+              foto1Path: savedFoto1,
+              foto2Path: savedFoto2,
+              clientUuid: clientUuid,
+            );
+
+            if (mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+                  title: Row(
+                    children: [
+                      const Icon(Icons.cloud_upload_rounded,
+                          color: AppColors.warning, size: 22),
+                      const SizedBox(width: 8),
+                      Text('Tersimpan Offline', style: GoogleFonts.outfit()),
+                    ],
+                  ),
+                  content: Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Koneksi terputus. Laporan kendali disimpan di antrean offline perangkat dan akan dikirim saat online.',
+                      style: GoogleFonts.inter(fontSize: 13),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      child: const Text('OK'),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        Navigator.of(context).pop(true);
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
+              );
+            }
+          } else {
+            if (mounted) _showErrorDialog('Terjadi kesalahan: $e');
+          }
         }
       } catch (e) {
-        if (mounted) _showErrorDialog('Terjadi kesalahan saat menyimpan offline: $e');
+        if (mounted) _showErrorDialog('Gagal memproses data laporan: $e');
+      } finally {
+        if (mounted) {
+          setState(() => _isSubmitting = false);
+        }
       }
     }
   }
 
   void _showErrorDialog(String message) {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
         title: Row(
           children: [
-            const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+            const Icon(Icons.warning_amber_rounded,
                 color: AppColors.error, size: 22),
             const SizedBox(width: 8),
             Text('Gagal Mengirim', style: GoogleFonts.outfit()),
@@ -347,7 +518,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
           child: Text(message, style: GoogleFonts.inter(fontSize: 13)),
         ),
         actions: [
-          CupertinoDialogAction(
+          TextButton(
             child: const Text('Tutup'),
             onPressed: () => Navigator.of(ctx).pop(),
           ),
@@ -368,7 +539,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(CupertinoIcons.back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -386,13 +557,13 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
             child: _isGettingLocation
                 ? const Padding(
                     padding: EdgeInsets.all(14),
-                    child: CupertinoActivityIndicator(radius: 9),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
                   )
                 : IconButton(
                     icon: Icon(
                       _hasLocation
-                          ? CupertinoIcons.location_fill
-                          : CupertinoIcons.location_slash_fill,
+                          ? Icons.location_on_rounded
+                          : Icons.location_off_rounded,
                       size: 18,
                       color:
                           _hasLocation ? AppColors.primary : AppColors.textSecondary,
@@ -473,7 +644,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(CupertinoIcons.location_solid,
+                          const Icon(Icons.location_on_rounded,
                               size: 13, color: AppColors.textSecondary),
                           const SizedBox(width: 4),
                           Expanded(
@@ -612,7 +783,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
                         hint: 'Contoh: 90000000',
                         controller: _keuanganTextController,
                         keyboardType: TextInputType.number,
-                        prefixIcon: CupertinoIcons.money_dollar_circle_fill,
+                        prefixIcon: Icons.payments_rounded,
                         validator: (val) {
                           if (val == null || val.isEmpty) {
                             return 'Nilai tagihan keuangan wajib diisi';
@@ -731,7 +902,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
                         hint:
                             'Contoh: Kondisi jembatan tampak depan, progres 70%...',
                         controller: _info1Controller,
-                        prefixIcon: CupertinoIcons.info_circle,
+                        prefixIcon: Icons.info_outline_rounded,
                         maxLines: 2,
                       ),
                     ],
@@ -807,7 +978,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
                           hint:
                               'Contoh: Detail penulangan beton, tampak samping...',
                           controller: _info2Controller,
-                          prefixIcon: CupertinoIcons.info_circle,
+                          prefixIcon: Icons.info_outline_rounded,
                           maxLines: 2,
                         ),
                       ),
@@ -818,10 +989,10 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
 
                 // ── Submit Button ────────────────────────────────────────────
                 IosButton(
-                  label: 'Kirim Lembar Kendali',
-                  icon: CupertinoIcons.cloud_upload_fill,
-                  isLoading: paketProvider.isLoading,
-                  onPressed: _submitProgressToApi,
+                  label: _isSubmitting ? 'Memproses Laporan...' : 'Kirim Lembar Kendali',
+                  icon: Icons.cloud_upload_rounded,
+                  isLoading: _isSubmitting || paketProvider.isLoading,
+                  onPressed: (_isSubmitting || paketProvider.isLoading) ? null : _submitProgressToApi,
                 ),
                 const SizedBox(height: 24),
               ],
@@ -852,10 +1023,10 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
         children: [
           Icon(
             _isGettingLocation
-                ? CupertinoIcons.location
+                ? Icons.my_location_rounded
                 : (_hasLocation
-                    ? CupertinoIcons.location_fill
-                    : CupertinoIcons.location_slash_fill),
+                    ? Icons.location_on_rounded
+                    : Icons.location_off_rounded),
             size: 14,
             color: _isGettingLocation
                 ? AppColors.primary
@@ -884,7 +1055,7 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
           if (_isGettingLocation)
             const Padding(
               padding: EdgeInsets.only(left: 6),
-              child: CupertinoActivityIndicator(radius: 6),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
             ),
         ],
       ),
@@ -912,8 +1083,8 @@ class _InputProgresScreenState extends State<InputProgresScreen> {
         children: [
           Icon(
             isWatermarked
-                ? CupertinoIcons.checkmark_seal_fill
-                : CupertinoIcons.exclamationmark_triangle,
+                ? Icons.verified_rounded
+                : Icons.warning_amber_rounded,
             size: 13,
             color: isWatermarked ? AppColors.success : Colors.orange,
           ),

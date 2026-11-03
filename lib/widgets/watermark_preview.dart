@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/utils/date_formatter.dart';
@@ -86,7 +85,7 @@ class WatermarkPreview extends StatelessWidget {
                   // Brand header
                   Row(
                     children: [
-                      const Icon(CupertinoIcons.checkmark_shield_fill,
+                      const Icon(Icons.verified_user_rounded,
                           color: Color(0xFF007AFF), size: 13),
                       const SizedBox(width: 5),
                       Expanded(
@@ -199,20 +198,20 @@ class WatermarkPreview extends StatelessWidget {
             child: Row(
               children: [
                 _actionButton(
-                  icon: CupertinoIcons.camera_fill,
+                  icon: Icons.camera_alt_rounded,
                   onTap: onPickCamera,
                   tooltip: 'Kamera',
                 ),
                 const SizedBox(width: 6),
                 _actionButton(
-                  icon: CupertinoIcons.photo_fill,
+                  icon: Icons.photo_library_rounded,
                   onTap: onPickGallery,
                   tooltip: 'Galeri',
                 ),
                 if (onRemove != null && imagePath != null) ...[
                   const SizedBox(width: 6),
                   _actionButton(
-                    icon: CupertinoIcons.trash_fill,
+                    icon: Icons.delete_rounded,
                     onTap: onRemove!,
                     tooltip: 'Hapus',
                     color: const Color(0xFFFF3B30),
@@ -266,7 +265,7 @@ class WatermarkPreview extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                CupertinoIcons.camera,
+                Icons.camera_alt_outlined,
                 color: Colors.white54,
                 size: 36,
               ),

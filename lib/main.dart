@@ -63,7 +63,10 @@ class SimoniPuApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(
             seedColor: AppColors.primary,
             primary: AppColors.primary,
+            secondary: AppColors.secondaryMedium,
+            tertiary: AppColors.accent,
             surface: AppColors.cardBackground,
+            error: AppColors.error,
           ),
           textTheme: GoogleFonts.interTextTheme(
             Theme.of(context).textTheme,
@@ -71,7 +74,59 @@ class SimoniPuApp extends StatelessWidget {
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.white,
             elevation: 0,
+            scrolledUnderElevation: 0,
             iconTheme: IconThemeData(color: AppColors.textPrimary),
+            titleTextStyle: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          cardTheme: CardThemeData(
+            color: AppColors.cardBackground,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: const BorderSide(color: AppColors.borderLight, width: 0.8),
+            ),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.borderMedium),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.borderLight),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.borderLight),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
           ),
         ),
         home: const AppEntryGate(),
