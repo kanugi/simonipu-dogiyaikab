@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/constants/app_colors.dart';
 
-class IosTextField extends StatelessWidget {
+/// Input field standar Material 3 untuk Aplikasi SIMONI PU
+class SimoniTextField extends StatelessWidget {
   final String label;
   final String hint;
   final TextEditingController? controller;
@@ -14,8 +15,11 @@ class IosTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
   final bool readOnly;
+  final VoidCallback? onTap;
+  final String? errorText;
+  final bool hasError;
 
-  const IosTextField({
+  const SimoniTextField({
     super.key,
     required this.label,
     this.hint = '',
@@ -28,6 +32,9 @@ class IosTextField extends StatelessWidget {
     this.validator,
     this.onChanged,
     this.readOnly = false,
+    this.onTap,
+    this.errorText,
+    this.hasError = false,
   });
 
   @override
@@ -52,10 +59,12 @@ class IosTextField extends StatelessWidget {
           keyboardType: keyboardType,
           maxLines: maxLines,
           readOnly: readOnly,
+          onTap: onTap,
           onChanged: onChanged,
           validator: validator,
           style: GoogleFonts.inter(
-            fontSize: 15,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
             color: AppColors.textPrimary,
           ),
           decoration: InputDecoration(
@@ -65,26 +74,43 @@ class IosTextField extends StatelessWidget {
               color: AppColors.textMuted,
             ),
             filled: true,
-            fillColor: readOnly ? const Color(0xFFEFEFF4) : Colors.white,
+            fillColor: readOnly ? const Color(0xFFF1F5F9) : Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
             ),
             prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, color: AppColors.textSecondary, size: 20)
+                ? Icon(prefixIcon, color: hasError ? AppColors.error : AppColors.primary, size: 20)
                 : null,
             suffixIcon: suffixIcon,
+            errorText: errorText,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.borderLight),
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.error : AppColors.borderLight,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.borderLight),
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.error : AppColors.borderLight,
+                width: hasError ? 1.5 : 1.0,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.error : AppColors.primary,
+                width: 1.5,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.error, width: 1.0),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
             ),
           ),
         ),
@@ -92,3 +118,7 @@ class IosTextField extends StatelessWidget {
     );
   }
 }
+
+/// Backward-compatibility alias
+typedef IosTextField = SimoniTextField;
+

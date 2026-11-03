@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../constants/app_colors.dart';
@@ -77,13 +77,15 @@ class PermissionService {
     required String title,
     required String message,
   }) {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
         title: Row(
           children: [
             const Icon(
-              CupertinoIcons.lock_shield_fill,
+              Icons.security_rounded,
               color: AppColors.primary,
               size: 22,
             ),
@@ -107,13 +109,11 @@ class PermissionService {
           ),
         ),
         actions: [
-          CupertinoDialogAction(
+          TextButton(
             child: const Text('Batal'),
             onPressed: () => Navigator.of(ctx).pop(),
           ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: const Text('Pengaturan HP'),
+          TextButton(child: const Text('Pengaturan HP'),
             onPressed: () {
               Navigator.of(ctx).pop();
               openAppSettings();

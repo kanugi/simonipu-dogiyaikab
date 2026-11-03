@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +7,8 @@ import '../../../widgets/button.dart';
 import '../../../widgets/card.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/paket_provider.dart';
+import '../../providers/sync_provider.dart';
+import '../queue/sync_queue_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -22,7 +23,7 @@ class SettingsScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(CupertinoIcons.back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -48,7 +49,7 @@ class SettingsScreen extends StatelessWidget {
                       radius: 30,
                       backgroundColor: AppColors.primaryLight,
                       child: const Icon(
-                        CupertinoIcons.person_fill,
+                        Icons.person_rounded,
                         size: 34,
                         color: AppColors.primary,
                       ),
@@ -119,6 +120,83 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // Sinkronisasi & Antrean Offline
+              Text(
+                'Sinkronisasi & Antrean',
+                style: AppStyles.titleMedium(context),
+              ),
+              const SizedBox(height: 10),
+              IosCard(
+                child: Consumer<SyncProvider>(
+                  builder: (context, syncProv, _) {
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const SyncQueueScreen()),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: syncProv.queueCount > 0 ? const Color(0xFFFFFBEB) : AppColors.primaryLight,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                syncProv.queueCount > 0 ? Icons.cloud_upload_rounded : Icons.cloud_rounded,
+                                color: syncProv.queueCount > 0 ? AppColors.warning : AppColors.primary,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Antrean Offline & Sync',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    syncProv.queueCount > 0
+                                        ? '${syncProv.queueCount} data menunggu sinkronisasi'
+                                        : 'Semua data telah tersinkronisasi',
+                                    style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (syncProv.queueCount > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.warning,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${syncProv.queueCount}',
+                                  style: GoogleFonts.robotoMono(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.textSecondary),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+
               // Server Environment Section (Read-Only Status)
               Text(
                 'Konfigurasi Server API',
@@ -129,7 +207,7 @@ class SettingsScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     // _buildMetricRow(
-                    //   icon: CupertinoIcons.cloud_fill,
+                    //   icon: Icons.cloud_rounded,
                     //   iconColor: authProvider.isProductionEnv ? AppColors.primary : AppColors.warning,
                     //   title: 'Environment Terpilih',
                     //   subtitle: authProvider.isProductionEnv ? 'Server Utama (Production)' : 'Server Lokal (Development)',
@@ -137,7 +215,7 @@ class SettingsScreen extends StatelessWidget {
                     // ),
                     // const Divider(height: 20),
                     _buildMetricRow(
-                      icon: CupertinoIcons.link,
+                      icon: Icons.link_rounded,
                       iconColor: AppColors.info,
                       title: 'Base Endpoint URL',
                       subtitle: authProvider.baseUrl,
@@ -149,41 +227,43 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 10),
               
               // Read-Only Server Info Notice Box
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF2F2F7),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE5E5EA)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(CupertinoIcons.info_circle_fill, size: 16, color: AppColors.textSecondary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Untuk mengubah server API, silakan keluar (logout) terlebih dahulu dan atur melalui menu pengaturan di halaman Login.',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+              // Container(
+              //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              //   decoration: BoxDecoration(
+              //     color: const Color(0xFFF2F2F7),
+              //     borderRadius: BorderRadius.circular(10),
+              //     border: Border.all(color: const Color(0xFFE5E5EA)),
+              //   ),
+              //   child: Row(
+              //     children: [
+              //       const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textSecondary),
+              //       const SizedBox(width: 8),
+              //       Expanded(
+              //         child: Text(
+              //           'Untuk mengubah server API, silakan keluar (logout) terlebih dahulu dan atur melalui menu pengaturan di halaman Login.',
+              //           style: GoogleFonts.inter(
+              //             fontSize: 11,
+              //             color: AppColors.textSecondary,
+              //             height: 1.3,
+              //           ),
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              // const SizedBox(height: 24),
 
               // Logout Button
               IosButton(
                 label: 'Keluar',
-                icon: CupertinoIcons.power,
+                icon: Icons.logout_rounded,
                 isDanger: true,
                 onPressed: () {
-                  showCupertinoDialog(
+                  showDialog(
                     context: context,
-                    builder: (ctx) => CupertinoAlertDialog(
+                    builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
                       title: Text('Konfirmasi Logout', style: GoogleFonts.outfit()),
                       content: Padding(
                         padding: const EdgeInsets.only(top: 8.0),
@@ -193,13 +273,13 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                       actions: [
-                        CupertinoDialogAction(
+                        TextButton(
                           child: const Text('Batal'),
                           onPressed: () => Navigator.of(ctx).pop(),
                         ),
-                        CupertinoDialogAction(
-                          isDestructiveAction: true,
-                          child: const Text('Keluar'),
+                        FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Keluar'),
                           onPressed: () async {
                             Navigator.of(ctx).pop();
                             if (context.mounted) {

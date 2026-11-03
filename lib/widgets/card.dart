@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_styles.dart';
 
-class IosCard extends StatelessWidget {
+/// Kartu standar Material 3 untuk Aplikasi SIMONI PU
+class SimoniCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry margin;
   final VoidCallback? onTap;
   final bool isGlass;
   final Color? color;
+  final Gradient? gradient;
   final double borderRadius;
   final Border? border;
+  final double? elevation;
+  final List<BoxShadow>? customShadow;
 
-  const IosCard({
+  const SimoniCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16.0),
@@ -21,33 +25,41 @@ class IosCard extends StatelessWidget {
     this.onTap,
     this.isGlass = false,
     this.color,
+    this.gradient,
     this.borderRadius = 18.0,
     this.border,
+    this.elevation,
+    this.customShadow,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget cardContent = Container(
+    final effectiveBorderRadius = BorderRadius.circular(borderRadius);
+    
+    Widget content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color ?? (isGlass ? AppColors.glassWhite : AppColors.cardBackground),
-        borderRadius: BorderRadius.circular(borderRadius),
+        color: gradient == null
+            ? (color ?? (isGlass ? AppColors.glassWhite : AppColors.cardBackground))
+            : null,
+        gradient: gradient,
+        borderRadius: effectiveBorderRadius,
         border: border ??
             Border.all(
               color: isGlass ? AppColors.glassBorder : AppColors.borderLight,
               width: 0.8,
             ),
-        boxShadow: AppStyles.cardShadow,
+        boxShadow: customShadow ?? AppStyles.cardShadow,
       ),
       child: child,
     );
 
     if (isGlass) {
-      cardContent = ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
+      content = ClipRRect(
+        borderRadius: effectiveBorderRadius,
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: cardContent,
+          child: content,
         ),
       );
     }
@@ -57,11 +69,13 @@ class IosCard extends StatelessWidget {
         padding: margin,
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(borderRadius),
+          borderRadius: effectiveBorderRadius,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(borderRadius),
-            child: cardContent,
+            borderRadius: effectiveBorderRadius,
+            splashColor: AppColors.primary.withAlpha(20),
+            highlightColor: AppColors.primary.withAlpha(10),
+            child: content,
           ),
         ),
       );
@@ -69,7 +83,11 @@ class IosCard extends StatelessWidget {
 
     return Padding(
       padding: margin,
-      child: cardContent,
+      child: content,
     );
   }
 }
+
+/// Backward-compatibility alias agar kode lama tetap jalan lancar dengan visual baru
+typedef IosCard = SimoniCard;
+

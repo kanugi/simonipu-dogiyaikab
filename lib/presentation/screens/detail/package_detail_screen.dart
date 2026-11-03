@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +16,13 @@ import '../input/input_progres_screen.dart';
 
 class PackageDetailScreen extends StatefulWidget {
   final int packageIdInt;
+  final PaketPekerjaan? initialPackage;
 
-  const PackageDetailScreen({super.key, required this.packageIdInt});
+  const PackageDetailScreen({
+    super.key,
+    required this.packageIdInt,
+    this.initialPackage,
+  });
 
   @override
   State<PackageDetailScreen> createState() => _PackageDetailScreenState();
@@ -35,7 +40,9 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
   void _loadData() {
     final paketProvider = Provider.of<PaketProvider>(context, listen: false);
-    _detailFuture = paketProvider.getPaketDetail(widget.packageIdInt);
+    _detailFuture = widget.initialPackage != null
+        ? Future.value(widget.initialPackage)
+        : paketProvider.getPaketDetail(widget.packageIdInt);
     _fotoHistoryFuture = paketProvider.getPaketFotoHistory(widget.packageIdInt);
   }
 
@@ -47,7 +54,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(CupertinoIcons.back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -66,8 +73,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 children: [
                   IconButton(
                     icon: syncProv.isSyncing
-                        ? const CupertinoActivityIndicator(radius: 10)
-                        : const Icon(CupertinoIcons.refresh, color: AppColors.primary),
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          )
+                        : const Icon(Icons.refresh_rounded, color: AppColors.primary),
                     tooltip: 'Sinkronkan Data Offline',
                     onPressed: syncProv.isSyncing
                         ? null
@@ -107,7 +118,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           future: _detailFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CupertinoActivityIndicator(radius: 16));
+              return const Center(child: CircularProgressIndicator(color: AppColors.primary));
             }
 
             final package = snapshot.data;
@@ -117,7 +128,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(
-                      CupertinoIcons.exclamationmark_triangle_fill,
+                      Icons.warning_amber_rounded,
                       size: 48,
                       color: AppColors.warning,
                     ),
@@ -266,7 +277,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                           if (fotoSnapshot.connectionState == ConnectionState.waiting) {
                             return const Padding(
                               padding: EdgeInsets.all(30),
-                              child: Center(child: CupertinoActivityIndicator()),
+                              child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
                             );
                           }
 
@@ -280,7 +291,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                               child: Center(
                                 child: Column(
                                   children: [
-                                    const Icon(CupertinoIcons.exclamationmark_circle,
+                                    const Icon(Icons.info_outline_rounded,
                                         color: AppColors.warning, size: 32),
                                     const SizedBox(height: 8),
                                     Text(
@@ -355,68 +366,125 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          'Kendali #${item.kendaliId}',
+                                          item.kendaliId > 0
+                                              ? 'Kendali #${item.kendaliId}'
+                                              : (item.syncStatus == 'failed_validation'
+                                                  ? 'Draft (Gagal Validasi)'
+                                                  : 'Draft Kendali (Offline)'),
                                           style: GoogleFonts.robotoMono(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
+                                            color: item.kendaliId > 0
+                                                ? AppColors.primary
+                                                : (item.syncStatus == 'failed_validation'
+                                                    ? AppColors.error
+                                                    : const Color(0xFFD97706)),
                                           ),
                                         ),
                                         Row(
                                           children: [
-                                            // Tombol Edit muncul jika status Pending atau Rejected
-                                            if (isPending || isRejected) ...[
+                                            // Aksi untuk data resmi server
+                                            if (item.kendaliId > 0) ...[
+                                              if (isPending || isRejected) ...[
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    onTap: () async {
+                                                      final updated = await Navigator.of(context).push(
+                                                        MaterialPageRoute(
+                                                          builder: (_) => EditKendaliScreen(
+                                                            package: package,
+                                                            kendaliItem: item,
+                                                          ),
+                                                        ),
+                                                      );
+                                                      if (updated == true || mounted) {
+                                                        setState(() {
+                                                          _loadData();
+                                                        });
+                                                      }
+                                                    },
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: AppColors.primary.withAlpha(20),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.edit_rounded, size: 12, color: AppColors.primary),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            'Edit',
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 10,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: AppColors.primary,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                              ],
+                                              if (isPending) ...[
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    onTap: () => _confirmDeleteKendali(item),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: AppColors.error.withAlpha(20),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.delete_outline_rounded, size: 12, color: AppColors.error),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            'Hapus',
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 10,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: AppColors.error,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                              ],
+                                            ] else ...[
+                                              // Aksi untuk draft lokal (Offline)
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
                                                   borderRadius: BorderRadius.circular(6),
                                                   onTap: () async {
-                                                    final updated = await Navigator.of(context).push(
-                                                      CupertinoPageRoute(
-                                                        builder: (_) => EditKendaliScreen(
-                                                          package: package,
-                                                          kendaliItem: item,
-                                                        ),
-                                                      ),
-                                                    );
-                                                    if (updated == true || mounted) {
+                                                    final messenger = ScaffoldMessenger.of(context);
+                                                    final syncProv = Provider.of<SyncProvider>(context, listen: false);
+                                                    final ok = await syncProv.deleteQueueItem(item.clientUuid);
+                                                    if (mounted) {
                                                       setState(() {
                                                         _loadData();
                                                       });
+                                                      messenger.showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(ok ? 'Draf lokal berhasil dihapus.' : 'Gagal menghapus draf.'),
+                                                          backgroundColor: ok ? AppColors.success : AppColors.error,
+                                                        ),
+                                                      );
                                                     }
                                                   },
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                    decoration: BoxDecoration(
-                                                      color: AppColors.primary.withAlpha(20),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        const Icon(CupertinoIcons.pencil, size: 12, color: AppColors.primary),
-                                                        const SizedBox(width: 4),
-                                                        Text(
-                                                          'Edit',
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: AppColors.primary,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                            ],
-                                            if (isPending) ...[
-                                              Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  borderRadius: BorderRadius.circular(6),
-                                                  onTap: () => _confirmDeleteKendali(item),
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                     decoration: BoxDecoration(
@@ -426,10 +494,10 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        const Icon(CupertinoIcons.trash, size: 12, color: AppColors.error),
+                                                        const Icon(Icons.delete_outline_rounded, size: 12, color: AppColors.error),
                                                         const SizedBox(width: 4),
                                                         Text(
-                                                          'Hapus',
+                                                          'Hapus Draf',
                                                           style: GoogleFonts.inter(
                                                             fontSize: 10,
                                                             fontWeight: FontWeight.bold,
@@ -521,7 +589,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                   child: FloatingActionButton.extended(
                     onPressed: () async {
                       await Navigator.of(context).push(
-                        CupertinoPageRoute(
+                        MaterialPageRoute(
                           builder: (_) => InputProgresScreen(package: package),
                         ),
                       );
@@ -529,8 +597,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                         _loadData();
                       });
                     },
-                    backgroundColor: AppColors.primary,
-                    icon: const Icon(CupertinoIcons.add, color: Colors.white),
+                    backgroundColor: AppColors.accent,
+                    icon: const Icon(Icons.add_task_rounded, color: Colors.white),
                     label: Text(
                       'Input Progres Baru',
                       style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white),
@@ -551,6 +619,9 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     required String label,
     required String info,
   }) {
+    final bool isNetworkUrl = url.startsWith('http://') || url.startsWith('https://');
+    final bool isLocalFile = !isNetworkUrl && url.isNotEmpty && File(url).existsSync();
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FA),
@@ -564,29 +635,44 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
             child: Stack(
               children: [
-                Image.network(
-                  FotoKendali.sanitizeUrl(url),
-                  height: 130,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, err, stack) => Container(
+                if (isLocalFile)
+                  Image.file(
+                    File(url),
                     height: 130,
-                    color: Colors.grey.shade200,
-                    child: const Center(
-                      child: Icon(CupertinoIcons.photo, color: Colors.grey, size: 30),
-                    ),
-                  ),
-                  loadingBuilder: (ctx, child, progress) {
-                    if (progress == null) return child;
-                    return Container(
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, stack) => Container(
                       height: 130,
-                      color: Colors.grey.shade100,
+                      color: Colors.grey.shade200,
                       child: const Center(
-                        child: CupertinoActivityIndicator(),
+                        child: Icon(Icons.image_outlined, color: Colors.grey, size: 30),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  )
+                else
+                  Image.network(
+                    FotoKendali.sanitizeUrl(url),
+                    height: 130,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, stack) => Container(
+                      height: 130,
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: Icon(Icons.image_outlined, color: Colors.grey, size: 30),
+                      ),
+                    ),
+                    loadingBuilder: (ctx, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        height: 130,
+                        color: Colors.grey.shade100,
+                        child: const Center(
+                          child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                        ),
+                      );
+                    },
+                  ),
                 Positioned(
                   top: 6,
                   left: 6,
@@ -614,7 +700,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             child: Row(
               children: [
                 const Icon(
-                  CupertinoIcons.info_circle,
+                  Icons.info_outline_rounded,
                   size: 13,
                   color: AppColors.textSecondary,
                 ),
@@ -665,31 +751,32 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   }
 
   void _confirmDeleteKendali(FotoKendali item) {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
         title: Row(
           children: [
-            const Icon(CupertinoIcons.trash_fill, color: AppColors.error, size: 20),
+            const Icon(Icons.delete_rounded, color: AppColors.error, size: 22),
             const SizedBox(width: 8),
-            Text('Hapus Kendali #${item.kendaliId}', style: GoogleFonts.outfit()),
+            Text('Hapus Kendali #${item.kendaliId}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Text(
-            'Apakah Anda yakin ingin menghapus lembar kendali ini? Tindakan ini tidak dapat dibatalkan.',
-            style: GoogleFonts.inter(fontSize: 13),
-          ),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus lembar kendali ini? Tindakan ini tidak dapat dibatalkan.',
+          style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
         ),
         actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
+          TextButton(
             child: const Text('Batal'),
             onPressed: () => Navigator.of(ctx).pop(),
           ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () async {
               Navigator.of(ctx).pop();
               final paketProvider = Provider.of<PaketProvider>(context, listen: false);

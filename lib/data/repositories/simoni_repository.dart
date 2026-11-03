@@ -45,6 +45,7 @@ class SimoniRepository {
     String? foto2Path,
     String? info1,
     String? info2,
+    String? clientUuid,
   }) async {
     return await _apiService.postInputProgress(
       proyekId: proyekId,
@@ -55,6 +56,7 @@ class SimoniRepository {
       foto2Path: foto2Path,
       info1: info1,
       info2: info2,
+      clientUuid: clientUuid,
     );
   }
 

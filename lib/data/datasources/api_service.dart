@@ -11,8 +11,9 @@ import 'session_manager.dart';
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
+  final bool isNetworkError;
 
-  ApiException(this.message, {this.statusCode});
+  ApiException(this.message, {this.statusCode, this.isNetworkError = false});
 
   @override
   String toString() => message;
@@ -82,7 +83,12 @@ Future<Map<String, dynamic>> login(
 
     stopwatch.stop();
 
-    final Map<String, dynamic> body = jsonDecode(response.body);
+    Map<String, dynamic> body = {};
+    try {
+      body = jsonDecode(response.body);
+    } catch (_) {
+      // Body bukan format JSON valid
+    }
 
     if (response.statusCode == 200 && body['success'] == true) {
       final data = body['data'];
@@ -101,12 +107,22 @@ Future<Map<String, dynamic>> login(
         'message': body['message'] ?? 'Login berhasil',
       };
     } else {
-      final errorMsg = body['message'] ??
-          body['errors'] ??
-          'Gagal login. Periksa username dan password Anda.';
+      String errorMsg = body['message']?.toString() ??
+          body['errors']?.toString() ??
+          '';
+
+      if (errorMsg.isEmpty) {
+        if (response.statusCode == 401 || response.statusCode == 400) {
+          errorMsg = 'Kombinasi Username dan Password tidak sesuai';
+        } else if (response.statusCode == 500) {
+          errorMsg = 'Terjadi kendala pada server (Error 500). Silakan hubungi admin.';
+        } else {
+          errorMsg = 'Gagal login. Periksa username dan password Anda.';
+        }
+      }
 
       throw ApiException(
-        errorMsg.toString(),
+        errorMsg,
         statusCode: response.statusCode,
       );
     }
@@ -314,6 +330,7 @@ Future<Map<String, dynamic>> login(
     String? foto2Path,
     String? info1,
     String? info2,
+    String? clientUuid,
   }) async {
     try {
       final baseUrl = await _getBaseUrl();
@@ -333,6 +350,9 @@ Future<Map<String, dynamic>> login(
       request.fields['majukeuangan'] = majukeuangan.toString();
       if (keterangan != null && keterangan.isNotEmpty) {
         request.fields['keterangan'] = keterangan;
+      }
+      if (clientUuid != null && clientUuid.isNotEmpty) {
+        request.fields['client_uuid'] = clientUuid;
       }
 
       // Keterangan foto 1
@@ -365,7 +385,7 @@ Future<Map<String, dynamic>> login(
       debugPrint('URL         : $url');
       debugPrint('Status Code : ${response.statusCode}');
       debugPrint('Content-Type: ${response.headers['content-type']}');
-      debugPrint('Fields sent : proyekid=$proyekId, majufreal=$majufreal, majukeuangan=$majukeuangan');
+      debugPrint('Fields sent : proyekid=$proyekId, majufreal=$majufreal, majukeuangan=$majukeuangan, client_uuid=$clientUuid');
       debugPrint('Response    : ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
 
       // Cek error status code 413 (Request Entity Too Large)
@@ -417,9 +437,9 @@ Future<Map<String, dynamic>> login(
         throw ApiException(errorMsg.toString(), statusCode: response.statusCode);
       }
     } on SocketException {
-      throw ApiException('Gagal terhubung ke server saat mengunggah progres.');
+      throw ApiException('Gagal terhubung ke server saat mengunggah progres.', isNetworkError: true);
     } on TimeoutException {
-      throw ApiException('Waktu koneksi habis saat mengunggah foto. Coba lagi.');
+      throw ApiException('Waktu koneksi habis saat mengunggah foto. Coba lagi.', isNetworkError: true);
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Terjadi kesalahan saat kirim progres: $e');

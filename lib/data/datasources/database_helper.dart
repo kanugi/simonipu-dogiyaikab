@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/foto_kendali.dart';
+import '../models/paket_pekerjaan.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -25,16 +26,55 @@ class DatabaseHelper {
       path,
       version: 1,
       onCreate: _onCreate,
+      onOpen: (db) async {
+        try {
+          await db.execute('ALTER TABLE paketkendali_local ADD COLUMN nama_paket TEXT;');
+        } catch (_) {}
+        try {
+          await _createPaketTable(db);
+        } catch (_) {}
+      },
     );
   }
 
+  Future<void> _createPaketTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS paket_local (
+        id INTEGER PRIMARY KEY,
+        kode_paket TEXT,
+        nama_paket TEXT,
+        tahun_anggaran TEXT,
+        nilai_kontrak REAL,
+        rekanan TEXT,
+        kegiatan TEXT,
+        bidang TEXT,
+        tgl_kontrak TEXT,
+        batas_kontrak TEXT,
+        biaya REAL,
+        id_rekanan INTEGER,
+        nama_rekanan TEXT,
+        long REAL,
+        lat REAL,
+        lokasi TEXT,
+        target_efektif REAL,
+        target_fungsi REAL,
+        realisasi_fisik REAL,
+        realisasi_keuangan REAL,
+        sisa_keuangan REAL,
+        updated_at TEXT
+      )
+    ''');
+  }
+
   Future<void> _onCreate(Database db, int version) async {
+    await _createPaketTable(db);
     await db.execute('''
       CREATE TABLE paketkendali_local (
         local_id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_uuid TEXT UNIQUE NOT NULL,
         kendaliid INTEGER NULL,
         proyekid INTEGER NOT NULL,
+        nama_paket TEXT,
         majufreal REAL NOT NULL,
         majukeuangan REAL NOT NULL,
         keterangan TEXT,
@@ -174,6 +214,16 @@ class DatabaseHelper {
     }
   }
 
+  /// Hapus satu antrean berdasarkan client_uuid
+  Future<int> deleteQueueItem(String clientUuid) async {
+    final db = await database;
+    return await db.delete(
+      'paketkendali_local',
+      where: 'client_uuid = ?',
+      whereArgs: [clientUuid],
+    );
+  }
+
   /// Hapus data berdasarkan kendaliid (soft delete sync)
   Future<int> deleteByKendaliId(int kendaliid) async {
     final db = await database;
@@ -182,6 +232,74 @@ class DatabaseHelper {
       where: 'kendaliid = ?',
       whereArgs: [kendaliid],
     );
+  }
+
+  /// Ambil HANYA item pending_sync untuk auto-sync batch PUSH
+  /// Item failed_validation TIDAK dikirim ulang secara otomatis
+  Future<List<Map<String, dynamic>>> getPendingSyncOnlyProgres() async {
+    final db = await database;
+    return await db.query(
+      'paketkendali_local',
+      where: 'sync_status = ?',
+      whereArgs: ['pending_sync'],
+      orderBy: 'local_id ASC',
+    );
+  }
+
+  // ── Paket Pekerjaan Local Caching (Offline Cache) ──────────────────────────
+
+  /// Simpan / perbarui daftar paket pekerjaan ke SQLite lokal (batch)
+  Future<void> upsertPaketList(List<PaketPekerjaan> paketList) async {
+    if (paketList.isEmpty) return;
+    final db = await database;
+    final batch = db.batch();
+
+    for (final p in paketList) {
+      final map = p.toJson();
+      map['updated_at'] = DateTime.now().toIso8601String();
+      batch.insert(
+        'paket_local',
+        map,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    await batch.commit(noResult: true);
+  }
+
+  /// Simpan / perbarui satu detail paket ke SQLite lokal
+  Future<void> upsertPaket(PaketPekerjaan paket) async {
+    final db = await database;
+    final map = paket.toJson();
+    map['updated_at'] = DateTime.now().toIso8601String();
+    await db.insert(
+      'paket_local',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Ambil seluruh daftar paket tersimpan dari cache SQLite lokal
+  Future<List<PaketPekerjaan>> getAllPaketLocal() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'paket_local',
+      orderBy: 'id DESC',
+    );
+    return maps.map((m) => PaketPekerjaan.fromJson(m)).toList();
+  }
+
+  /// Ambil satu detail paket dari cache SQLite lokal
+  Future<PaketPekerjaan?> getPaketDetailLocal(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'paket_local',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return PaketPekerjaan.fromJson(maps.first);
   }
 }
 
